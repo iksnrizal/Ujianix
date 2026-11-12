@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminPesertaRouteImport } from './routes/admin.peserta'
+import { Route as AdminSoalRouteImport } from './routes/admin.soal'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,16 +35,23 @@ const AdminPesertaRoute = AdminPesertaRouteImport.update({
   path: '/peserta',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminSoalRoute = AdminSoalRouteImport.update({
+  id: '/soal',
+  path: '/soal',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/admin/peserta': typeof AdminPesertaRoute
+  '/admin/soal': typeof AdminSoalRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/peserta': typeof AdminPesertaRoute
+  '/admin/soal': typeof AdminSoalRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -51,14 +59,15 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/admin/peserta': typeof AdminPesertaRoute
+  '/admin/soal': typeof AdminSoalRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/admin/peserta' | '/admin/'
+  fullPaths: '/' | '/admin' | '/admin/peserta' | '/admin/soal' | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin/peserta' | '/admin'
-  id: '__root__' | '/' | '/admin' | '/admin/peserta' | '/admin/'
+  to: '/' | '/admin/peserta' | '/admin/soal' | '/admin'
+  id: '__root__' | '/' | '/admin' | '/admin/peserta' | '/admin/soal' | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -96,16 +105,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPesertaRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/soal': {
+      id: '/admin/soal'
+      path: '/soal'
+      fullPath: '/admin/soal'
+      preLoaderRoute: typeof AdminSoalRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminPesertaRoute: typeof AdminPesertaRoute
+  AdminSoalRoute: typeof AdminSoalRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminPesertaRoute: AdminPesertaRoute,
+  AdminSoalRoute: AdminSoalRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

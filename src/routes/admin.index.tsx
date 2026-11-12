@@ -91,7 +91,7 @@ const tones = {
   success: "bg-success-soft text-success",
 };
 
-function StatCard({ icon, label, value, tone, live }: { icon: ReactNode; label: string; value?: number; tone: keyof typeof tones; live?: boolean }) {
+function StatCard({ icon, label, value, tone, live }: { icon: ReactNode; label: string; value?: number | undefined; tone: keyof typeof tones; live?: boolean }) {
   return (
     <div className="rounded-xl border bg-card p-5 shadow-card">
       <div className="flex items-center justify-between">

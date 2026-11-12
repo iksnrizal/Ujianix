@@ -20,7 +20,7 @@ import { Route as AdminSoalRouteImport } from './routes/admin.soal'
 import { Route as AdminUjianRouteImport } from './routes/admin.ujian'
 import { Route as HasilAttemptIdRouteImport } from './routes/hasil.$attemptId'
 import { Route as PesertaIndexRouteImport } from './routes/peserta.index'
-import { Route as UjianRouteImport } from './routes/ujian.'
+import { Route as UjianExamIdRouteImport } from './routes/ujian.$examId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,9 +77,9 @@ const PesertaIndexRoute = PesertaIndexRouteImport.update({
   path: '/',
   getParentRoute: () => PesertaRoute,
 } as any)
-const UjianRoute = UjianRouteImport.update({
-  id: '/ujian/',
-  path: '/ujian/',
+const UjianExamIdRoute = UjianExamIdRouteImport.update({
+  id: '/ujian/$examId',
+  path: '/ujian/$examId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -87,25 +87,25 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/peserta': typeof PesertaRouteWithChildren
-  '/ujian/': typeof UjianRoute
   '/admin/hasil': typeof AdminHasilRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/hasil/$attemptId': typeof HasilAttemptIdRoute
+  '/ujian/$examId': typeof UjianExamIdRoute
   '/admin/': typeof AdminIndexRoute
   '/peserta/': typeof PesertaIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ujian': typeof UjianRoute
   '/admin/hasil': typeof AdminHasilRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/hasil/$attemptId': typeof HasilAttemptIdRoute
+  '/ujian/$examId': typeof UjianExamIdRoute
   '/admin': typeof AdminIndexRoute
   '/peserta': typeof PesertaIndexRoute
 }
@@ -114,13 +114,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/peserta': typeof PesertaRouteWithChildren
-  '/ujian/': typeof UjianRoute
   '/admin/hasil': typeof AdminHasilRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/hasil/$attemptId': typeof HasilAttemptIdRoute
+  '/ujian/$examId': typeof UjianExamIdRoute
   '/admin/': typeof AdminIndexRoute
   '/peserta/': typeof PesertaIndexRoute
 }
@@ -130,25 +130,25 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/peserta'
-    | '/ujian/'
     | '/admin/hasil'
     | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/hasil/$attemptId'
+    | '/ujian/$examId'
     | '/admin/'
     | '/peserta/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/ujian'
     | '/admin/hasil'
     | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/hasil/$attemptId'
+    | '/ujian/$examId'
     | '/admin'
     | '/peserta'
   id:
@@ -156,13 +156,13 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/peserta'
-    | '/ujian/'
     | '/admin/hasil'
     | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/hasil/$attemptId'
+    | '/ujian/$examId'
     | '/admin/'
     | '/peserta/'
   fileRoutesById: FileRoutesById
@@ -171,8 +171,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
   PesertaRoute: typeof PesertaRouteWithChildren
-  UjianRoute: typeof UjianRoute
   HasilAttemptIdRoute: typeof HasilAttemptIdRoute
+  UjianExamIdRoute: typeof UjianExamIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -254,11 +254,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PesertaIndexRouteImport
       parentRoute: typeof PesertaRoute
     }
-    '/ujian/': {
-      id: '/ujian/'
-      path: '/ujian'
-      fullPath: '/ujian/'
-      preLoaderRoute: typeof UjianRouteImport
+    '/ujian/$examId': {
+      id: '/ujian/$examId'
+      path: '/ujian/$examId'
+      fullPath: '/ujian/$examId'
+      preLoaderRoute: typeof UjianExamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -299,8 +299,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
   PesertaRoute: PesertaRouteWithChildren,
-  UjianRoute: UjianRoute,
   HasilAttemptIdRoute: HasilAttemptIdRoute,
+  UjianExamIdRoute: UjianExamIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

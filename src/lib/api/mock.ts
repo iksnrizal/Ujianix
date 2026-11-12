@@ -56,7 +56,7 @@ async function request<T>(fn: () => T, latency = 160): Promise<T> {
 function auth(role: Role) {
   const token = getToken();
   const [, tokenRole, id] = token?.split(":") ?? [];
-  if (!token || tokenRole !== role) throw new ApiError("Sesi tidak valid. Silakan login kembali.", 401);
+  if (!token || tokenRole !== role || !id) throw new ApiError("Sesi tidak valid. Silakan login kembali.", 401);
   return id;
 }
 
@@ -334,12 +334,13 @@ export const mockApi: UjianixApi = {
         d.attempts.push(attempt);
         persist();
       }
+      const current: Attempt = attempt;
       const questions = exam.questionIds
         .map((id) => d.questions.find((q) => q.id === id))
         .filter((q) => !!q)
         .map(({ correct: _c, ...pub }) => pub);
       return {
-        attempt: { id: attempt.id, examId, startedAt: attempt.startedAt, deadline: attempt.deadline, answers: { ...attempt.answers }, status: attempt.status },
+        attempt: { id: current.id, examId, startedAt: current.startedAt, deadline: current.deadline, answers: { ...current.answers }, status: current.status },
         exam: { id: exam.id, name: exam.name, subject: exam.subject, durationMinutes: exam.durationMinutes },
         questions,
         serverTime: new Date().toISOString(),

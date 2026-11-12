@@ -9,8 +9,8 @@ export interface User {
   username: string;
   name: string;
   role: Role;
-  identityNumber?: string;
-  className?: string;
+  identityNumber?: string | undefined;
+  className?: string | undefined;
 }
 
 export interface Participant {
@@ -28,7 +28,7 @@ export interface ParticipantInput {
   identityNumber: string;
   className: string;
   /** Required when creating; optional when editing (empty = keep). */
-  password?: string;
+  password?: string | undefined;
 }
 
 export interface Question {
@@ -82,8 +82,8 @@ export interface Attempt {
   deadline: string;
   answers: Answers;
   status: AttemptStatus;
-  submittedAt?: string;
-  result?: AttemptResult;
+  submittedAt?: string | undefined;
+  result?: AttemptResult | undefined;
 }
 
 export interface DashboardStats {
@@ -102,8 +102,8 @@ export interface ResultRow {
   examName: string;
   subject: string;
   status: AttemptStatus;
-  submittedAt?: string;
-  result?: AttemptResult;
+  submittedAt?: string | undefined;
+  result?: AttemptResult | undefined;
 }
 
 export type ParticipantExamState = "belum_dikerjakan" | "sedang_dikerjakan" | "selesai";
@@ -112,7 +112,7 @@ export interface ParticipantExamView {
   exam: Pick<Exam, "id" | "name" | "subject" | "durationMinutes" | "status">;
   questionCount: number;
   state: ParticipantExamState;
-  attemptId?: string;
+  attemptId?: string | undefined;
 }
 
 export interface ExamSession {

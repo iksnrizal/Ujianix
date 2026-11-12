@@ -32,8 +32,19 @@ test_mode() {
     sudo cp "$config_file" "$RUNTIME_CONFIG"
     sudo bash "$SCRIPT_DIR/apply-firewall.sh"
 
-    sudo grep -F "ip daddr $ip tcp dport $port accept" "$RUNTIME_RULES"
-    sudo grep -F "policy drop;" "$RUNTIME_RULES"
+    if [[ "$mode" == "ONLINE" ]]; then
+    sudo grep -Fq "ip daddr $ip tcp dport $port accept" "$RUNTIME_RULES"
+    echo "[OK] Whitelist online ditemukan."
+    else
+        if sudo grep -Fq "ip daddr" "$RUNTIME_RULES"; then
+        echo "[ERROR] Mode offline masih memiliki aturan whitelist IP."
+        return 1
+        fi
+        echo "[OK] Mode offline tidak memiliki whitelist IP."
+    fi
+
+    sudo grep -Fq "policy drop;" "$RUNTIME_RULES"
+    echo "[OK] Policy DROP ditemukan."
 
     echo "[OK] Mode $mode berhasil."
 }

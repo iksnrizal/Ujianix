@@ -1,9 +1,11 @@
-#!/bin/bash
 
+#!/bin/bash
 set -euo pipefail
 
-CONFIG_USB="/tmp/ujianix-admin/ujanix/exam-config.json"
+CONFIG_USB="/home/nazuuraliaa/ujanix-admin/ujanix/exam-config.json"
 CONFIG_RAM="/run/ujanix/exam-config.json"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "[INFO] Memulai pembacaan konfigurasi..."
 
@@ -13,20 +15,20 @@ if [ ! -f "$CONFIG_USB" ]; then
     exit 1
 fi
 
+# Memastikan konfigurasi dapat dibaca
+if [ ! -r "$CONFIG_USB" ]; then
+    echo "[ERROR] Konfigurasi USB tidak dapat dibaca."
+    exit 1
+fi
+
+# Validasi konfigurasi sumber sebelum disalin ke RAM
+python3 "$SCRIPT_DIR/validate-config.py" "$CONFIG_USB"
+
 # Membuat direktori RAM
-mkdir -p /run/ujianix
+mkdir -p /run/ujanix
 
-# Menyalin konfigurasi ke RAM
-cp "$CONFIG_USB" "$CONFIG_RAM"
-
-# Mengatur izin file
-chmod 600 "$CONFIG_RAM"
+# Menyalin konfigurasi valid ke RAM dengan izin 600
+install -m 600 "$CONFIG_USB" "$CONFIG_RAM"
 
 echo "[INFO] Konfigurasi berhasil disalin ke RAM."
-
-# Menjalankan validator
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-
-python3 "$SCRIPT_DIR/validate-config.py" "$CONFIG_RAM"
-
 echo "[OK] Konfigurasi siap digunakan."

@@ -59,7 +59,6 @@ keyboard-configuration
 | 3 | Tambah `user-setup`, `locales`, `keyboard-configuration` | Berhasil, boot dan autologin terkonfirmasi lewat tangkapan layar | 344 MiB |
 
 Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kiosk. Ini wajar untuk baseline, bukan kegagalan.
-- **Verifikasi:** setelah perbaikan, autologin berhasil. Catatan jujur: penyebab pasti belum dibuktikan langsung (`getent passwd user` di VM), karena percobaan `init=/bin/bash` gagal (lihat T-04). Bukti yang ada adalah korelasi: gejala hilang setelah paket ditambahkan. Update: pada build 3, `getent passwd user` menampilkan akun "Debian Live user", sehingga akun terbukti ada (kondisi build 2 saat gagal tidak diperiksa langsung
 ## 3. Hasil uji fungsional
 
 | ID | Skenario | Hasil yang diharapkan | Hasil aktual | Status |

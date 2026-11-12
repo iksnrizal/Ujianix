@@ -20,7 +20,7 @@ async function call<T>(method: string, path: string, body?: unknown, timeoutMs =
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? null : JSON.stringify(body),
       signal: controller.signal,
     });
   } catch {
@@ -46,7 +46,7 @@ const enc = encodeURIComponent;
 
 export const httpApi: UjianixApi = {
   login: (username, password) => call("POST", "/api/auth/login", { username, password }),
-  logout: () => call("POST", "/api/auth/logout").catch(() => undefined),
+  logout: () => call<void>("POST", "/api/auth/logout").catch(() => undefined),
   health: () => call("GET", "/api/health", undefined, 4000),
 
   getDashboardStats: () => call("GET", "/api/admin/stats"),

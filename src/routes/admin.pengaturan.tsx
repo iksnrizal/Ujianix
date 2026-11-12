@@ -23,7 +23,7 @@ const urlSchema = z.string().trim().url("Alamat harus berupa URL, contoh http://
 function SettingsPage() {
   const qc = useQueryClient();
   const [cfg, setCfg] = useState<AppConfig | null>(null);
-  const [urlError, setUrlError] = useState<string>();
+  const [urlError, setUrlError] = useState<string | undefined>();
   const [test, setTest] = useState<"idle" | "loading" | "ok" | "fail">("idle");
   const [testMsg, setTestMsg] = useState("");
   const [confirmReset, setConfirmReset] = useState(false);
@@ -35,7 +35,7 @@ function SettingsPage() {
     if (!cfg) return;
     const url = urlSchema.safeParse(cfg.apiBaseUrl);
     if (cfg.mode === "flask" && !url.success) {
-      setUrlError(url.error.issues[0].message);
+      setUrlError(url.error.issues[0]?.message);
       return;
     }
     setUrlError(undefined);

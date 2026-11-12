@@ -20,8 +20,8 @@ export interface AppConfig {
 const CONFIG_KEY = "ujianix.config";
 
 export const DEFAULT_CONFIG: AppConfig = {
-  mode: import.meta.env.VITE_API_MODE === "flask" ? "flask" : "mock",
-  apiBaseUrl: (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://192.168.1.10:5000",
+  mode: import.meta.env["VITE_API_MODE"] === "flask" ? "flask" : "mock",
+  apiBaseUrl: (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "http://192.168.1.10:5000",
   institutionName: "SMA Negeri Demo Ujianix",
   simulateOffline: false,
 };

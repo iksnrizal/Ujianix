@@ -138,8 +138,8 @@ function ParticipantDialog({ target, onClose }: { target: Participant | "new" | 
     const parsed = schema.safeParse(form);
     const errs: Record<string, string> = {};
     if (!parsed.success) for (const [k, v] of Object.entries(parsed.error.flatten().fieldErrors)) if (v?.[0]) errs[k] = v[0];
-    if (isNew && (form.password ?? "").length < 6) errs.password = "Password minimal 6 karakter";
-    if (!isNew && form.password && form.password.length < 6) errs.password = "Password minimal 6 karakter";
+    if (isNew && (form.password ?? "").length < 6) errs["password"] = "Password minimal 6 karakter";
+    if (!isNew && form.password && form.password.length < 6) errs["password"] = "Password minimal 6 karakter";
     setErrors(errs);
     if (Object.keys(errs).length || !parsed.success) return;
     save.mutate({ ...parsed.data, password: form.password || undefined });

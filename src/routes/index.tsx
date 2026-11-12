@@ -30,7 +30,7 @@ const loginSchema = z.object({
   password: z.string().min(1, "Password wajib diisi").max(100, "Password terlalu panjang"),
 });
 
-type Errors = Partial<Record<"username" | "password" | "form", string>>;
+type Errors = Partial<Record<"username" | "password" | "form", string | undefined>>;
 
 function LoginPage() {
   const { user, ready, login } = useAuth();

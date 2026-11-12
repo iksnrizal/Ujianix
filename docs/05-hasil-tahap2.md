@@ -90,7 +90,8 @@ Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kios
 
 - **Gejala:** `Failed to load COM32 file vesamenu.c32`, hanya prompt `boot:` yang tersedia.
 - **Dugaan:** modul `vesamenu.c32` tidak tersalin ke ISO karena `syslinux-common` dipasang lalu dihapus pada tahap pembersihan build (tampak di log `lb binary_syslinux`).
-- **Dampak:** `xorriso -find /isolinux -name '*.c32'` menunjukkan `vesamenu.c32` tidak ada di ISO (yang ada: hdt, ldlinux, libcom32, libgpl, libmenu, libutil). Dugaan penyebab di atas belum diverifikasi.
+- **Dampak:** peserta pada perangkat BIOS lama tidak melihat menu; sistem masih bisa di-boot manual. Relevan karena sasaran proyek adalah perangkat lama.
+- **Hasil cek:** `xorriso -find /isolinux -name '*.c32'` menunjukkan `vesamenu.c32` tidak ada di ISO (yang ada: hdt, ldlinux, libcom32, libgpl, libmenu, libutil). Dugaan penyebab di atas belum diverifikasi.
 - **Tindak lanjut:** diputuskan pada Tahap 3/6 (bootloader akan diatur sendiri untuk kiosk). Perlu uji ulang jalur BIOS setelah konfigurasi bootloader final.
 
 ### T-03 — Proses `lb build` macet di tahap chroot (sedang, ada solusi)

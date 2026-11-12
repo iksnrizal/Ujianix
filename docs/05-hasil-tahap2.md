@@ -1,5 +1,5 @@
 # Laporan QA Tahap 2 — Prototipe Dasar ISO Ujianix
-**Tanggal pengujian:** 10 November 2026
+**Tanggal pengujian:** 10 dan 12 November 2026 (build 3 dan build 4)
 **Penguji:** _(isi nama dan NPM setelah pembagian tugas final ditetapkan)_
 **Status tahap:** Baseline ISO berhasil dibangun dan di-boot di mesin virtual. Benchmark (waktu boot, RAM) dan checksum sudah dicatat; lihat bagian 5 dan 6.
 
@@ -28,7 +28,7 @@ Konfigurasi `lb config` yang dipakai:
 --binary-images iso-hybrid --bootloaders "syslinux,grub-efi"
 --debian-installer none --apt-recommends false --archive-areas "main"
 --iso-volume "UJIANIX" --iso-application "Ujianix"
---bootappend-live "boot=live components quiet"
+--bootappend-live "boot=live components quiet noroot"
 ```
 
 Daftar paket (`build/config/package-lists/ujianix.list.chroot`), versi akhir:
@@ -57,6 +57,7 @@ keyboard-configuration
 | 1 | Paket minimal (`linux-image-amd64`, `live-boot`, `live-config`, `systemd-sysv`) | `Build completed successfully` | 334 MB (171008 sektor) |
 | 2 | Tambah `login`, `passwd`, `sudo`, `libpam-systemd`, `libpam-modules`, `dbus`; jalankan dengan `< /dev/null` | `Build completed successfully` (13:49) | ±337 MiB (172544 sektor); squashfs 271,79 MiB |
 | 3 | Tambah `user-setup`, `locales`, `keyboard-configuration` | Berhasil, boot dan autologin terkonfirmasi lewat tangkapan layar | 344 MiB |
+| 4 | Parameter `noroot` pada bootappend-live (hardening: sudo dihapus) | `Build completed successfully`; boot dan autologin terkonfirmasi | 344 MiB (176128 sektor); squashfs 279,09 MiB |
 
 Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kiosk. Ini wajar untuk baseline, bukan kegagalan.
 ## 3. Hasil uji fungsional
@@ -69,9 +70,10 @@ Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kios
 | T2-04 | Autologin pada build 2 | Masuk shell `user` | `Authentication failure` berulang di tty1 | GAGAL (lihat T-01) |
 | T2-05 | Autologin pada build 3 | Masuk shell `user` | Prompt `user@debian:~$` muncul, kernel 6.12.116+deb13-amd64 | LULUS |
 | T2-06 | Boot dengan RAM 1 GB (`-m 1024`) | Sistem naik | Naik sampai shell | LULUS |
-| T2-07 | `whoami`, `id`, `sudo -n true` di VM | `user`, grup sudo, sudo tanpa password | whoami=user; id=uid 1000 dengan grup sudo (27); sudo -n true berhasil; getent passwd user menampilkan "Debian Live user" | LULUS |
-| T2-08 | Waktu boot (`systemd-analyze`) | Tercatat 3 kali | 8,781 s; 9,076 s; 8,717 s. Rata-rata 8,858 s | LULUS (tercatat) |
-| T2-09 | Pemakaian RAM (`free -m`) | Tercatat 3 kali | used 258 MiB (3 kali); available 703, 702, 702 MiB | LULUS (tercatat) |
+| T2-07a | `whoami`, `id`, `sudo -n true` (build 3) | user, grup sudo, sudo tanpa password | Grup sudo (27) ada; `sudo -n true` berhasil | LULUS (sebelum hardening) |
+| T2-07b | Pengujian yang sama pada build 4 (`noroot`) | user tanpa grup sudo, sudo ditolak | `id` tanpa grup sudo; `sudo -n true`: "a password is required"; `sudo poweroff`: "user is not in the sudoers file" | LULUS (hardening berhasil) |
+| T2-08 | Waktu boot (build 4) | Tercatat 3 kali | 6,903 s; 6,941 s; 6,898 s. Rata-rata 6,914 s (build 3: 8,858 s) | LULUS (tercatat) |
+| T2-09 | Pemakaian RAM (build 4) | Tercatat 3 kali | used 256, 258, 258 MiB; available 704, 702, 702 MiB | LULUS (tercatat) |
 | T2-10 | Checksum ISO (`sha256sum`) | Tercatat | Tercatat di bagian 6 | LULUS (tercatat) |
 | T2-11 | Boot di perangkat fisik (flash USB) | Boot berhasil | Belum dicoba | BELUM DIUJI |
 | T2-12 | Secure Boot | Opsional, setelah fitur inti | Belum diuji. Log build menyebut "UEFI Secure Boot support enabled", tetapi itu belum bukti boot dengan Secure Boot aktif | DI LUAR LINGKUP TAHAP INI |
@@ -104,13 +106,14 @@ Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kios
 
 - **Gejala:** jendela QEMU menampilkan sampah warna-warni setelah `init=/bin/bash` ditambahkan di baris `linux` GRUB (jalur UEFI/OVMF).
 - **Dugaan:** konsol grafis tidak diinisialisasi karena proses boot dipotong. Belum diselidiki lebih jauh.
-- **Dampak:** hanya menghambat metode debug tertentu, bukan fungsi ISO. Jalur debug alternatif: login manual di tty2.
+	- **Dampak:** hanya menghambat metode debug tertentu, bukan fungsi ISO. Jalur debug alternatif: login manual di tty2.
 
 ### T-05 — Paket tak diminta ikut terpasang (rendah, ditunda ke Tahap 3)
 
 - **Gejala:** `indi-dsi`, `libindi-data`, `libindidriver1`, `firmware-ath9k-htc`, `firmware-carl9170`, `firmware-linux-free`, `wireless-regdb` ikut terpasang walaupun Recommends dimatikan.
 - **Dugaan:** berasal dari dependensi `linux-image-amd64`/mekanisme firmware live-build, bukan Recommends. Belum diverifikasi (misalnya dengan `apt-cache rdepends` atau `apt-get -s install`).
 - **Dampak:** menambah ukuran ISO dan permukaan serangan. Perlu dirapikan pada tahap kiosk.
+- **Update build 4:** paket-paket ini dikonfirmasi masih terpasang (log tahap chroot_install-packages).
 
 ### T-06 — Pesan yang aman diabaikan (informasi)
 
@@ -122,6 +125,12 @@ Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kios
 - `lb --version` melaporkan 20250814, sedangkan `dpkg` mencatat 3.0~a57. `make install` berhenti di tahap manpage (`po4a`/`dpkg-parsechangelog` tidak ada), tetapi berkas program sudah terpasang sebelum itu.
 - **Risiko:** anggota tim lain dengan lingkungan berbeda bisa mendapat hasil build berbeda. Disarankan mendokumentasikan langkah instalasi live-build di README dan menetapkan versi yang dipakai tim.
 
+### T-08 — Password bawaan `live` masih ada (rendah, belum diperbaiki)
+
+- **Gejala:** password bawaan `live-config` (`live`) diperkirakan masih berlaku untuk user `user`. Belum diverifikasi pada build 4.
+- **Verifikasi yang disarankan:** login manual di tty2 (Ctrl+Alt+2) dengan user `user` dan password `live`.
+- **Dampak:** tidak berbahaya selama user tidak punya hak sudo (terbukti pada build 4), tetapi sebaiknya dikunci pada hardening lanjutan.
+
 ## 5. Data benchmark (wajib diisi dari pengujian nyata)
 
 Jalankan di dalam VM (`-m 1024 -smp 1`) pada setiap boot, lalu catat:
@@ -131,12 +140,14 @@ systemd-analyze
 free -m
 ```
 
+- **Build 4** (data build 3, rata-rata 8,858 s, disimpan sebagai pembanding)
+
 | Boot ke- | Waktu boot total (`systemd-analyze`) | RAM terpakai (`free -m`, kolom used) | RAM tersedia (kolom available) |
 |---:|---|---|---|
-| 1 | 8,781 s | 258 MiB | 703 MiB |
-| 2 | 9,076 s | 258 MiB | 702 MiB |
-| 3 | 8,717 s | 258 MiB | 702 MiB |
-| Rata-rata | 8,858 s | 258 MiB | ±702 MiB |
+| 1 | 6,903 s | 256 MiB | 704 MiB |
+| 2 | 6,941 s | 258 MiB | 702 MiB |
+| 3 | 6,898 s | 258 MiB | 702 MiB |
+| Rata-rata | 6,914 s | 257 MiB | ±703 MiB |
 
 Catatan metode: sebutkan apakah `-enable-kvm` dipakai (dipakai pada pengujian ini), jumlah CPU virtual (1), dan jalur boot (UEFI/OVMF). Hasil dari QEMU/KVM tidak bisa dianggap setara dengan perangkat lama fisik.
 
@@ -151,7 +162,8 @@ sha256sum live-image-amd64.hybrid.iso
 
 | Berkas | Ukuran | SHA-256 |
 |---|---|---|
-| `live-image-amd64.hybrid.iso` (build 3) | `live-image-amd64.hybrid.iso` (build 3) | 344 MiB | d9695175db65fa24b5dacecf9315a34720aaf21af96fa2b5a4315963045a407d |
+| `live-image-amd64.hybrid.iso` (build 3) | 344 MiB | d9695175db65fa24b5dacecf9315a34720aaf21af96fa2b5a4315963045a407d |
+| `live-image-amd64.hybrid.iso` (build 4) | 344 MiB (176128 sektor) | e8490d757d0fa0d2ca12db7bb1fac57ab5f8f3b7ef8a10d862e44dfa7df7345e |
 
 ISO tidak di-commit ke repository (sudah di `.gitignore`). Hash dicatat di sini agar hasil dapat diverifikasi.
 
@@ -161,7 +173,7 @@ ISO tidak di-commit ke repository (sudah di `.gitignore`). Hash dicatat di sini 
 |---|---|
 | ISO dapat di-boot | Terbukti di QEMU (UEFI). Jalur BIOS punya temuan T-02. Perangkat fisik belum diuji |
 | Ukuran ISO 600 MB-1 GB | Belum relevan: baseline 344 MiB tanpa browser/kiosk |
-| RAM minimal 1 GB | Boot sampai shell dengan 1 GB di QEMU; RAM terpakai 258 MiB, tersedia ±702 MiB (baseline tanpa kiosk) |
+| RAM minimal 1 GB | Boot sampai shell dengan 1 GB di QEMU; RAM terpakai ±257 MiB, tersedia ±703 MiB. (baseline tanpa kiosk) |
 | Mode kiosk, whitelist, pengawasan, install ke disk, GPG | Belum dikerjakan (Tahap 3–6) |
 
 **Kriteria lanjut ke Tahap 3:** bagian 5 dan 6 sudah dilengkapi; commit laporan ini beserta konfigurasi build.

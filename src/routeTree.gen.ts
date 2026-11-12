@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminPesertaRouteImport } from './routes/admin.peserta'
 import { Route as AdminSoalRouteImport } from './routes/admin.soal'
+import { Route as AdminUjianRouteImport } from './routes/admin.ujian'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,18 +41,25 @@ const AdminSoalRoute = AdminSoalRouteImport.update({
   path: '/soal',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminUjianRoute = AdminUjianRouteImport.update({
+  id: '/ujian',
+  path: '/ujian',
+  getParentRoute: () => AdminRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
+  '/admin/ujian': typeof AdminUjianRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
+  '/admin/ujian': typeof AdminUjianRoute
   '/admin': typeof AdminIndexRoute
 }
 export interface FileRoutesById {
@@ -60,14 +68,28 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
+  '/admin/ujian': typeof AdminUjianRoute
   '/admin/': typeof AdminIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin' | '/admin/peserta' | '/admin/soal' | '/admin/'
+  fullPaths:
+    | '/'
+    | '/admin'
+    | '/admin/peserta'
+    | '/admin/soal'
+    | '/admin/ujian'
+    | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin/peserta' | '/admin/soal' | '/admin'
-  id: '__root__' | '/' | '/admin' | '/admin/peserta' | '/admin/soal' | '/admin/'
+  to: '/' | '/admin/peserta' | '/admin/soal' | '/admin/ujian' | '/admin'
+  id:
+    | '__root__'
+    | '/'
+    | '/admin'
+    | '/admin/peserta'
+    | '/admin/soal'
+    | '/admin/ujian'
+    | '/admin/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -112,18 +134,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminSoalRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/ujian': {
+      id: '/admin/ujian'
+      path: '/ujian'
+      fullPath: '/admin/ujian'
+      preLoaderRoute: typeof AdminUjianRouteImport
+      parentRoute: typeof AdminRoute
+    }
   }
 }
 
 interface AdminRouteChildren {
   AdminPesertaRoute: typeof AdminPesertaRoute
   AdminSoalRoute: typeof AdminSoalRoute
+  AdminUjianRoute: typeof AdminUjianRoute
   AdminIndexRoute: typeof AdminIndexRoute
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminPesertaRoute: AdminPesertaRoute,
   AdminSoalRoute: AdminSoalRoute,
+  AdminUjianRoute: AdminUjianRoute,
   AdminIndexRoute: AdminIndexRoute,
 }
 

@@ -21,7 +21,7 @@ import { useAuth, useRequireRole } from "@/lib/auth";
 import { formatClock, remainingMs } from "@/lib/scoring";
 import { cn } from "@/lib/utils";
 
-export const Route = createFileRoute("/ujian/")({
+export const Route = createFileRoute("/ujian/$examId")({
   head: () => ({
     meta: [
       { title: "Pengerjaan Ujian — Ujianix" },

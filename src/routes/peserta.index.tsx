@@ -29,7 +29,6 @@ function ParticipantDashboard() {
   const { data, isLoading, refetch, isFetching } = useQuery({ queryKey: ["my-exams"], queryFn: () => api.listMyExams(), refetchInterval: 15_000 });
   const [confirm, setConfirm] = useState<ParticipantExamView | null>(null);
 
-  const first = user?.name.split(" ")[0];
 
   return (
     <>
@@ -42,7 +41,7 @@ function ParticipantDashboard() {
       </section>
 
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-bold">Daftar Ujian{first ? "" : ""}</h2>
+        <h2 className="text-lg font-bold">Daftar Ujian</h2>
         <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}>
           <RotateCw className={isFetching ? "animate-spin" : ""} /> Muat ulang
         </Button>

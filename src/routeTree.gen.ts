@@ -11,12 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as PesertaRouteImport } from './routes/peserta'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminHasilRouteImport } from './routes/admin.hasil'
 import { Route as AdminPengaturanRouteImport } from './routes/admin.pengaturan'
 import { Route as AdminPesertaRouteImport } from './routes/admin.peserta'
 import { Route as AdminSoalRouteImport } from './routes/admin.soal'
 import { Route as AdminUjianRouteImport } from './routes/admin.ujian'
+import { Route as PesertaIndexRouteImport } from './routes/peserta.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -26,6 +28,11 @@ const IndexRoute = IndexRouteImport.update({
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PesertaRoute = PesertaRouteImport.update({
+  id: '/peserta',
+  path: '/peserta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
@@ -58,16 +65,23 @@ const AdminUjianRoute = AdminUjianRouteImport.update({
   path: '/ujian',
   getParentRoute: () => AdminRoute,
 } as any)
+const PesertaIndexRoute = PesertaIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PesertaRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/peserta': typeof PesertaRouteWithChildren
   '/admin/hasil': typeof AdminHasilRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/admin/': typeof AdminIndexRoute
+  '/peserta/': typeof PesertaIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -77,29 +91,34 @@ export interface FileRoutesByTo {
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/admin': typeof AdminIndexRoute
+  '/peserta': typeof PesertaIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/peserta': typeof PesertaRouteWithChildren
   '/admin/hasil': typeof AdminHasilRoute
   '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
   '/admin/': typeof AdminIndexRoute
+  '/peserta/': typeof PesertaIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/admin'
+    | '/peserta'
     | '/admin/hasil'
     | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/admin/'
+    | '/peserta/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,21 +128,25 @@ export interface FileRouteTypes {
     | '/admin/soal'
     | '/admin/ujian'
     | '/admin'
+    | '/peserta'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/peserta'
     | '/admin/hasil'
     | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/admin/'
+    | '/peserta/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRouteWithChildren
+  PesertaRoute: typeof PesertaRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -140,6 +163,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/peserta': {
+      id: '/peserta'
+      path: '/peserta'
+      fullPath: '/peserta'
+      preLoaderRoute: typeof PesertaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/': {
@@ -184,6 +214,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminUjianRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/peserta/': {
+      id: '/peserta/'
+      path: '/'
+      fullPath: '/peserta/'
+      preLoaderRoute: typeof PesertaIndexRouteImport
+      parentRoute: typeof PesertaRoute
+    }
   }
 }
 
@@ -207,9 +244,21 @@ const AdminRouteChildren: AdminRouteChildren = {
 
 const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
 
+interface PesertaRouteChildren {
+  PesertaIndexRoute: typeof PesertaIndexRoute
+}
+
+const PesertaRouteChildren: PesertaRouteChildren = {
+  PesertaIndexRoute: PesertaIndexRoute,
+}
+
+const PesertaRouteWithChildren =
+  PesertaRoute._addFileChildren(PesertaRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRouteWithChildren,
+  PesertaRoute: PesertaRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -125,10 +125,9 @@ Ukuran ISO jauh di bawah sasaran 600 MB–1 GB karena belum ada browser dan kios
 - `lb --version` melaporkan 20250814, sedangkan `dpkg` mencatat 3.0~a57. `make install` berhenti di tahap manpage (`po4a`/`dpkg-parsechangelog` tidak ada), tetapi berkas program sudah terpasang sebelum itu.
 - **Risiko:** anggota tim lain dengan lingkungan berbeda bisa mendapat hasil build berbeda. Disarankan mendokumentasikan langkah instalasi live-build di README dan menetapkan versi yang dipakai tim.
 
-### T-08 — Password bawaan `live` masih ada (rendah, belum diperbaiki)
+### T-08 — Password bawaan `live` masih berlaku (rendah, belum diperbaiki)
 
-- **Gejala:** password bawaan `live-config` (`live`) diperkirakan masih berlaku untuk user `user`. Belum diverifikasi pada build 4.
-- **Verifikasi yang disarankan:** login manual di tty2 (Ctrl+Alt+2) dengan user `user` dan password `live`.
+- **Gejala:** password bawaan `live-config` (`live`) terbukti masih berlaku untuk user `user` pada build 4 (diuji lewat `su - user` di tty1, bukan login tty2).
 - **Dampak:** tidak berbahaya selama user tidak punya hak sudo (terbukti pada build 4), tetapi sebaiknya dikunci pada hardening lanjutan.
 
 ## 5. Data benchmark (wajib diisi dari pengujian nyata)
@@ -140,7 +139,7 @@ systemd-analyze
 free -m
 ```
 
-- **Build 4** (data build 3, rata-rata 8,858 s, disimpan sebagai pembanding)
+- **Build 4** (pembanding build 3: rata-rata 8,858 s)
 
 | Boot ke- | Waktu boot total (`systemd-analyze`) | RAM terpakai (`free -m`, kolom used) | RAM tersedia (kolom available) |
 |---:|---|---|---|

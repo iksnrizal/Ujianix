@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminHasilRouteImport } from './routes/admin.hasil'
+import { Route as AdminPengaturanRouteImport } from './routes/admin.pengaturan'
 import { Route as AdminPesertaRouteImport } from './routes/admin.peserta'
 import { Route as AdminSoalRouteImport } from './routes/admin.soal'
 import { Route as AdminUjianRouteImport } from './routes/admin.ujian'
@@ -29,6 +31,16 @@ const AdminRoute = AdminRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminHasilRoute = AdminHasilRouteImport.update({
+  id: '/hasil',
+  path: '/hasil',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminPengaturanRoute = AdminPengaturanRouteImport.update({
+  id: '/pengaturan',
+  path: '/pengaturan',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminPesertaRoute = AdminPesertaRouteImport.update({
@@ -50,6 +62,8 @@ const AdminUjianRoute = AdminUjianRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin/hasil': typeof AdminHasilRoute
+  '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
@@ -57,6 +71,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin/hasil': typeof AdminHasilRoute
+  '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
@@ -66,6 +82,8 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRouteWithChildren
+  '/admin/hasil': typeof AdminHasilRoute
+  '/admin/pengaturan': typeof AdminPengaturanRoute
   '/admin/peserta': typeof AdminPesertaRoute
   '/admin/soal': typeof AdminSoalRoute
   '/admin/ujian': typeof AdminUjianRoute
@@ -76,16 +94,27 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/admin'
+    | '/admin/hasil'
+    | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin/peserta' | '/admin/soal' | '/admin/ujian' | '/admin'
+  to:
+    | '/'
+    | '/admin/hasil'
+    | '/admin/pengaturan'
+    | '/admin/peserta'
+    | '/admin/soal'
+    | '/admin/ujian'
+    | '/admin'
   id:
     | '__root__'
     | '/'
     | '/admin'
+    | '/admin/hasil'
+    | '/admin/pengaturan'
     | '/admin/peserta'
     | '/admin/soal'
     | '/admin/ujian'
@@ -120,6 +149,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/hasil': {
+      id: '/admin/hasil'
+      path: '/hasil'
+      fullPath: '/admin/hasil'
+      preLoaderRoute: typeof AdminHasilRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/pengaturan': {
+      id: '/admin/pengaturan'
+      path: '/pengaturan'
+      fullPath: '/admin/pengaturan'
+      preLoaderRoute: typeof AdminPengaturanRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/peserta': {
       id: '/admin/peserta'
       path: '/peserta'
@@ -145,6 +188,8 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteChildren {
+  AdminHasilRoute: typeof AdminHasilRoute
+  AdminPengaturanRoute: typeof AdminPengaturanRoute
   AdminPesertaRoute: typeof AdminPesertaRoute
   AdminSoalRoute: typeof AdminSoalRoute
   AdminUjianRoute: typeof AdminUjianRoute
@@ -152,6 +197,8 @@ interface AdminRouteChildren {
 }
 
 const AdminRouteChildren: AdminRouteChildren = {
+  AdminHasilRoute: AdminHasilRoute,
+  AdminPengaturanRoute: AdminPengaturanRoute,
   AdminPesertaRoute: AdminPesertaRoute,
   AdminSoalRoute: AdminSoalRoute,
   AdminUjianRoute: AdminUjianRoute,

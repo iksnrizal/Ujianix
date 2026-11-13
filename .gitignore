@@ -18,3 +18,7 @@ build/wget-log*
 # Hook bawaan lb config (hook buatan tim diawali "ujianix-")
 build/config/hooks/*/*
 !build/config/hooks/*/ujianix-*
+
+# Folder rilis ISO dan log uji lokal
+release/
+logs/

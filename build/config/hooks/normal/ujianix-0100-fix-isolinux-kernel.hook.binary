@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+KERNEL=$(basename $(ls live/vmlinuz* | head -n 1))
+INITRD=$(basename $(ls live/initrd* | head -n 1))
+sed -i "s|/live/@KERNEL@|/live/$KERNEL|g; s|@KERNEL@|/live/$KERNEL|g; s|/live/@INITRD@|/live/$INITRD|g; s|@INITRD@|/live/$INITRD|g" isolinux/*.cfg

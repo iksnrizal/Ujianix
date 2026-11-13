@@ -1,6 +1,6 @@
 # Laporan QA Tahap 2 — Prototipe Dasar ISO Ujianix
-**Tanggal pengujian:** 10 dan 12 November 2026 (build 3 dan build 4)
-**Penguji:** _(isi nama dan NPM setelah pembagian tugas final ditetapkan)_
+**Tanggal pengujian:** 10, 12, dan 13 November 2026 (build 3, build 4, dan build 5)
+**Penguji / Pelaksana Build:** Muhammad Mufti Faried (NPM: 257006111070)
 **Status tahap:** Baseline ISO berhasil dibangun dan di-boot di mesin virtual. Benchmark (waktu boot, RAM) dan checksum sudah dicatat; lihat bagian 5 dan 6.
 
 > Aturan proyek: keberhasilan tidak boleh diklaim tanpa bukti. Kolom yang bertanda **BELUM DIISI** harus dilengkapi dari hasil pengujian nyata, bukan perkiraan.
@@ -185,3 +185,32 @@ ISO tidak di-commit ke repository (sudah di `.gitignore`). Hash dicatat di sini 
 4. Boot lewat OVMF (perintah di bagian 1), pilih "Live system (amd64)" tanpa mengubah parameter.
 5. Verifikasi: prompt `user@debian:~$` muncul, lalu `whoami`, `id`, `systemd-analyze`, `free -m`.
 6. Uji login manual: Ctrl+Alt+2 untuk tty2 (user `user`, password `live`).
+
+---
+
+## 9. Pembaruan Build 5 — Perbaikan Boot Mode BIOS (13 November 2026)
+
+Menindaklanjuti temuan **T-02** pada branch `build/perbaiki-bios`, dilakukan perbaikan konfigurasi bootloader Legacy BIOS (`isolinux`) tanpa mengubah basis paket inti.
+
+### A. Akar Masalah & Solusi Teknis
+- **Penyebab Tambahan (T-02):** Selain modul menu, berkas konfigurasi `isolinux/*.cfg` hasil tahap `lb binary_syslinux` masih menyisakan token placeholder `@KERNEL@` dan `@INITRD@`, sehingga bootloader BIOS gagal menemukan citra kernel maupun initrd.
+- **Perbaikan:** Menambahkan *binary hook* `build/config/hooks/normal/ujianix-0100-fix-isolinux-kernel.hook.binary` yang berjalan pada tahap `lb binary_hooks` untuk mendeteksi nama aktual `vmlinuz*` dan `initrd*` di direktori `live/` serta mengganti seluruh placeholder di `isolinux/*.cfg` sebelum pengemasan ISO oleh `xorriso`.
+- **Konfigurasi Build 5:** Menggunakan parameter `--bootappend-live "boot=live components quiet"` (akses `sudo` aktif untuk mempermudah integrasi dan pengujian tahap kiosk oleh pengembang Tahap 3; parameter `noroot` dapat diaktifkan kembali pada tahap hardening akhir).
+
+### B. Hasil Verifikasi & Benchmark Build 5
+- **Ukuran ISO:** `345 MB` (`176.640` sektor; `filesystem.squashfs` `279,61 MB`)
+- **SHA-256 Checksum (`live-image-amd64.hybrid.iso`):**
+  `07cf84e0a57d845ce31280353c3e34bb363ad0f6e5f0d91b6f52f142fb10a206`
+- **Uji Boot Legacy BIOS (`qemu-system-x86_64` tanpa OVMF):** **LULUS** — Sistem berhasil *booting* hingga masuk ke sesi TTY `(live)user@localhost:~$`.
+- **Uji Boot UEFI (`OVMF.fd`) & 3x Benchmark (`-m 1024 -smp 1 -enable-kvm`):**
+
+| Boot ke- | Waktu Kernel | Waktu Userspace | Total Waktu Boot (`systemd-analyze`) | RAM Terpakai (`used`) | RAM Tersedia (`available`) |
+|---:| :---: | :---: | :---: | :---: | :---: |
+| 1 | 2,216 s | 6,575 s | 8,792 s | 257 MB | 704 MB |
+| 2 | 2,306 s | 12,209 s | 14,515 s | 258 MB | 702 MB |
+| 3 | 2,297 s | 6,950 s | 9,248 s | 258 MB | 702 MB |
+| **Rata-rata** | **2,273 s** | **8,578 s** | **10,852 s** | **257,67 MB** | **702,67 MB** |
+
+### C. Catatan Handover ke Tahap 3 (Pengembangan Mode Kiosk)
+1. Seluruh konfigurasi dasar (`build/config/`) dan *binary hook* perbaikan BIOS (`ujianix-0100-fix-isolinux-kernel.hook.binary`) sudah tersimpan di repositori.
+2. Untuk melanjutkan ke mode Kiosk, pengembang Tahap 3 cukup menambahkan daftar paket Xorg/Wayland, *window manager*, dan *browser* kiosk pada `build/config/package-lists/ujianix.list.chroot`, lalu mengaktifkan kembali flag `noroot` pada `--bootappend-live` setelah konfigurasi kiosk selesai.

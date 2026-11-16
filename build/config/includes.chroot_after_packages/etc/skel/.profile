@@ -29,5 +29,5 @@ fi
 # Ujianix kiosk session: run only on the first virtual terminal
 if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] && [ -z "${UJIANIX_KIOSK:-}" ]; then
     export UJIANIX_KIOSK=1
-    exec /usr/bin/cage -- /usr/bin/firefox-esr --kiosk about:blank
+    exec /usr/bin/cage -- /usr/bin/firefox-esr --kiosk about:home
 fi

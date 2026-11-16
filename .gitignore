@@ -1,20 +1,57 @@
-# Hasil build live-build (besar / bisa dibuat ulang)
+# ==================================================
+# HASIL BUILD UJIANIX
+# ==================================================
+
+# Live-build generated files
 build/.build/
+build/binary/
 build/cache/
 build/chroot/
-build/binary/
-build/local/
-
-# Artefak build
-build/*.iso
-build/*.log
 build/*.contents
 build/*.files
 build/*.packages
-build/chroot.packages.*
-build/binary.modified_timestamps
-build/wget-log*
+build/*.modified_timestamps
+build/chroot.files
+build/chroot.packages.*x
 
-# Hook bawaan lb config (hook buatan tim diawali "ujianix-")
-build/config/hooks/*/*
-!build/config/hooks/*/ujianix-*
+# Abaikan hanya file ISO hasil build
+build/*.iso
+
+# ==================================================
+# FILE SEMENTARA DAN LOG
+# ==================================================
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# ==================================================
+# KONFIGURASI LOKAL DAN RAHASIA
+# ==================================================
+
+.env
+.env.*
+!.env.example
+
+*.secret
+ujianix.local.conf
+
+# ==================================================
+# NODE.JS
+# ==================================================
+
+node_modules/
+
+# ==================================================
+# HASIL PENGUJIAN LOKAL
+# ==================================================
+
+test-results/
+screenshots/

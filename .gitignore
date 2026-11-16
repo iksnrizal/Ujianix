@@ -1,20 +1,34 @@
-# Hasil build live-build (besar / bisa dibuat ulang)
+# Debian Live-Build generated files
 build/.build/
+build/.lock
 build/cache/
 build/chroot/
 build/binary/
+build/source/
 build/local/
+build/config.backup/
 
-# Artefak build
+# Generated artifacts
 build/*.iso
+build/*.img
+build/*.tar*
 build/*.log
 build/*.contents
 build/*.files
 build/*.packages
-build/chroot.packages.*
+build/*.zsync
+build/*.md5
+build/*.sha*
+build/chroot.*
 build/binary.modified_timestamps
 build/wget-log*
 
-# Hook bawaan lb config (hook buatan tim diawali "ujianix-")
+# Default Live-Build hooks
 build/config/hooks/*/*
+!build/config/hooks/*/
 !build/config/hooks/*/ujianix-*
+
+# Backup files
+*.backup
+*.bak
+*~

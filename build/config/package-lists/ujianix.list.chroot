@@ -12,3 +12,5 @@ dbus
 user-setup
 locales
 keyboard-configuration
+cage
+firefox-esr

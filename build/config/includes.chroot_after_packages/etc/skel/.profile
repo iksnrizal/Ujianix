@@ -1,3 +1,13 @@
+# UJIANIX-DEBUG-BEGIN (sementara, hapus sebelum rilis)
+if grep -qw 'ujianix.debug' /proc/cmdline; then
+    echo "=== ANALISIS BOOT UJIANIX ==="
+    timeout 120 systemctl is-system-running --wait >/dev/null 2>&1
+    systemd-analyze
+    systemd-analyze blame | head -12
+    systemd-analyze critical-chain | head -18
+    return 0
+fi
+# UJIANIX-DEBUG-END
 # ~/.profile: executed by the command interpreter for login shells.
 # This file is not read by bash(1), if ~/.bash_profile or ~/.bash_login
 # exists.

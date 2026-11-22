@@ -1,0 +1,16 @@
+/chroot/
+/binary/
+/cache/
+/.build/
+*.iso
+*.log
+*.contents
+*.files
+*.packages
+*.zsync
+*.img
+*.tar*
+config/*.backup*
+config/**/*.backup*
+config/*backup-before*
+config/**/*backup-before*

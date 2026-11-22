@@ -1,0 +1,9 @@
+#!/bin/sh
+mkdir -p /etc/ujianix
+chmod 700 /etc/ujianix
+F=/etc/grub.d/10_linux
+sed -i 's|OS="${GRUB_DISTRIBUTOR} GNU/Linux"|OS="${GRUB_DISTRIBUTOR}"|' $F
+sed -i 's|title="$(gettext_printf "%s, with Linux %s" "${os}" "${version}")"|title="${os}"|' $F
+sed -i '/"\$message" | grub_quote/d' $F
+if grep -q 'title="${os}"' $F; then echo "UJIANIX: 10_linux dipatch"; else echo "UJIANIX: 10_linux TIDAK berubah"; fi
+exit 0

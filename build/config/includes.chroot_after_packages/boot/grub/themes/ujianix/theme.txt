@@ -4,6 +4,10 @@ title-text: ""
 message-font: "DejaVu Sans Regular 16"
 message-color: "#263238"
 terminal-font: "Unifont Regular 16"
+terminal-left: "25%"
+terminal-top: "93%"
+terminal-width: "50%"
+terminal-height: "5%"
 
 + label {
     top = 100%-50

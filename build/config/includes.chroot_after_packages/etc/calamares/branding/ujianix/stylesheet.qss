@@ -1,0 +1,11 @@
+CalamaresWindow { background-color: #F4F6F8; }
+QDialog, QMessageBox { background-color: #F4F6F8; }
+QLabel { color: #263238; }
+QLineEdit, QComboBox, QSpinBox, QPlainTextEdit, QTextEdit { background-color: #FFFFFF; color: #263238; border: 1px solid #B8C2CC; border-radius: 6px; padding: 6px 8px; }
+QLineEdit:focus, QComboBox:focus { border: 1px solid #2867A8; }
+QCheckBox, QRadioButton { color: #263238; }
+QPushButton { background-color: #2867A8; color: #FFFFFF; border: none; border-radius: 6px; padding: 8px 22px; }
+QPushButton:hover { background-color: #1B2A49; }
+QPushButton:disabled { background-color: #C5CED8; color: #F4F6F8; }
+QProgressBar { border: 1px solid #D8DEE5; border-radius: 6px; background: #FFFFFF; text-align: center; }
+QProgressBar::chunk { background-color: #2867A8; border-radius: 5px; }

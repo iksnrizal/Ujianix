@@ -1,0 +1,20 @@
+[Unit]
+Description=Ujianix First-Boot Configuration Server
+After=local-fs.target ujianix-config.service
+Before=getty@tty1.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ujianix-config-server
+Restart=on-failure
+RestartSec=2
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/etc/ujianix /run/ujianix
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

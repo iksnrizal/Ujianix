@@ -1,0 +1,700 @@
+#!/usr/bin/python3
+import os
+import re
+import ipaddress
+import hashlib
+import hmac
+import secrets
+import time
+import tempfile
+import subprocess
+import unicodedata
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from urllib.parse import parse_qs, urlparse
+from pathlib import Path
+
+HTML_FILE = Path("/usr/share/ujianix/config-error.html")
+DASHBOARD_FILE = Path("/usr/share/ujianix/admin-dashboard.html")
+CONFIG_DIR = Path("/etc/ujianix")
+CONFIG_FILE = CONFIG_DIR / "ujianix.conf"
+AUTH_FILE = CONFIG_DIR / "admin-auth"
+PBKDF2_ITERATIONS = 600000
+HOST = "127.0.0.1"
+PORT = 8765
+LOADER_FILE = Path("/usr/local/sbin/ujianix-load-config")
+MAX_BODY = 16384
+SESSION_TTL = 900  # 15 menit
+ACTIVE_SESSIONS = {}
+
+
+def valid_hostname(host):
+    try:
+        ipaddress.ip_address(host)
+        return True
+    except ValueError:
+        pass
+
+    if len(host) > 253:
+        return False
+
+    labels = host.rstrip(".").split(".")
+    return all(
+        label
+        and len(label) <= 63
+        and re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?", label)
+        for label in labels
+    )
+
+
+def parse_server_url(url):
+    if not url or any(c.isspace() for c in url) or any(c in url for c in "\\\"'"):
+        raise ValueError("URL mengandung karakter yang tidak diizinkan.")
+
+    try:
+        parsed = urlparse(url)
+        port = parsed.port
+    except ValueError:
+        raise ValueError("Format URL atau port server tidak valid.")
+
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise ValueError("URL server harus menggunakan HTTP atau HTTPS dan memiliki nama host.")
+
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("URL server tidak boleh memuat username atau password.")
+
+    if parsed.fragment:
+        raise ValueError("URL server tidak boleh menggunakan fragmen (#).")
+
+    if not valid_hostname(parsed.hostname):
+        raise ValueError("Nama host server tidak valid.")
+
+    if port is not None and not 1 <= port <= 65535:
+        raise ValueError("Port server harus antara 1 sampai 65535.")
+
+    effective_port = port if port is not None else (
+        443 if parsed.scheme == "https" else 80
+    )
+
+    return parsed, effective_port
+
+
+def parse_whitelist(text):
+    result = []
+
+    for raw_item in text.splitlines():
+        item = raw_item.strip()
+        if not item:
+            continue
+
+        host_part = item
+        port = None
+
+        if item.count(":") > 1:
+            raise ValueError("Format whitelist IPv6 belum didukung.")
+
+        if ":" in item:
+            host_part, port_text = item.rsplit(":", 1)
+            if not port_text.isdigit():
+                raise ValueError(f"Port whitelist tidak valid: {item}")
+            port = int(port_text)
+            if not 1 <= port <= 65535:
+                raise ValueError(f"Port whitelist harus 1 sampai 65535: {item}")
+
+        wildcard = host_part.startswith("*.")
+        hostname = host_part[2:] if wildcard else host_part
+
+        if "*" in hostname or not valid_hostname(hostname):
+            raise ValueError(f"Entri whitelist tidak valid: {item}")
+
+        result.append((hostname.lower(), wildcard, port, item))
+
+    if not result:
+        raise ValueError("Whitelist tidak boleh kosong.")
+
+    return result
+
+
+def server_is_whitelisted(parsed, server_port, entries):
+    server_host = parsed.hostname.lower()
+
+    for host, wildcard, allowed_port, _ in entries:
+        host_match = (
+            server_host.endswith("." + host) and server_host != host
+            if wildcard
+            else server_host == host
+        )
+        port_match = allowed_port is None or allowed_port == server_port
+
+        if host_match and port_match:
+            return True
+
+    return False
+
+
+def hash_admin_password(password):
+    if not isinstance(password, str) or not 12 <= len(password) <= 256:
+        raise ValueError("Password harus terdiri dari 12 sampai 256 karakter.")
+
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > 1024:
+        raise ValueError("Password terlalu panjang.")
+
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password_bytes, salt, PBKDF2_ITERATIONS
+    )
+
+    return (
+        f"pbkdf2_sha256${PBKDF2_ITERATIONS}$"
+        f"{salt.hex()}${digest.hex()}\n"
+    )
+
+
+def verify_admin_password(password, stored):
+    if not isinstance(password, str) or not isinstance(stored, str):
+        return False
+
+    try:
+        algorithm, iterations_text, salt_hex, digest_hex = stored.strip().split("$")
+        iterations = int(iterations_text)
+
+        if algorithm != "pbkdf2_sha256":
+            return False
+        if not 100000 <= iterations <= 2000000:
+            return False
+
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+
+        if len(salt) != 16 or len(expected) != 32:
+            return False
+
+        actual = hashlib.pbkdf2_hmac(
+            "sha256", password.encode("utf-8"), salt, iterations
+        )
+        return hmac.compare_digest(actual, expected)
+
+    except (ValueError, TypeError, UnicodeEncodeError):
+        return False
+
+
+def save_admin_password(password):
+    if AUTH_FILE.exists() or AUTH_FILE.is_symlink():
+        raise FileExistsError("Password administrator sudah terdaftar.")
+
+    encoded = hash_admin_password(password).encode("ascii")
+    CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+
+    fd, temp_name = tempfile.mkstemp(prefix=".admin-auth-", dir=CONFIG_DIR)
+    temp_path = Path(temp_name)
+
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "wb") as file:
+            file.write(encoded)
+            file.flush()
+            os.fsync(file.fileno())
+
+        # Hard link mencegah pendaftaran pertama menimpa file yang sudah ada.
+        os.link(temp_path, AUTH_FILE)
+        os.chmod(AUTH_FILE, 0o600)
+
+        dir_fd = os.open(
+            CONFIG_DIR, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        )
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
+def check_admin_password(password):
+    try:
+        info = AUTH_FILE.lstat()
+        if not AUTH_FILE.is_file() or AUTH_FILE.is_symlink():
+            return False
+        if info.st_mode & 0o077:
+            return False
+
+        stored = AUTH_FILE.read_text(encoding="ascii")
+        return verify_admin_password(password, stored)
+
+    except (OSError, UnicodeError):
+        return False
+
+
+def create_admin_session():
+    now = time.monotonic()
+
+    expired = [
+        token for token, expiry in ACTIVE_SESSIONS.items()
+        if expiry <= now
+    ]
+    for token in expired:
+        ACTIVE_SESSIONS.pop(token, None)
+
+    if len(ACTIVE_SESSIONS) >= 128:
+        oldest = min(ACTIVE_SESSIONS, key=ACTIVE_SESSIONS.get)
+        ACTIVE_SESSIONS.pop(oldest, None)
+
+    token = secrets.token_urlsafe(32)
+    ACTIVE_SESSIONS[token] = now + SESSION_TTL
+    return token
+
+
+def validate_admin_session(token):
+    if not isinstance(token, str) or not token:
+        return False
+
+    expiry = ACTIVE_SESSIONS.get(token)
+    if expiry is None:
+        return False
+
+    if expiry <= time.monotonic():
+        ACTIVE_SESSIONS.pop(token, None)
+        return False
+
+    return True
+
+
+def revoke_admin_session(token):
+    if isinstance(token, str):
+        ACTIVE_SESSIONS.pop(token, None)
+
+
+class Handler(BaseHTTPRequestHandler):
+    def send_text(self, status, message):
+        body = message.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self):
+        if self.path == "/launch":
+            return self.do_launch()
+
+        if self.path not in ("/", "/setup", "/dashboard"):
+            return self.send_text(404, "Not found")
+
+        cookies = {}
+        for part in self.headers.get("Cookie", "").split(";"):
+            key, separator, val = part.strip().partition("=")
+            if separator:
+                cookies[key] = val
+
+        session_token = cookies.get("ujianix_session", "")
+        authenticated = bool(
+            session_token and validate_admin_session(session_token)
+        )
+
+        csrf_token = secrets.token_urlsafe(32)
+
+        if AUTH_FILE.exists() and not authenticated:
+            html = f"""<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Login Administrator Ujianix</title>
+</head>
+<body>
+<main>
+<h1>Login Administrator Ujianix</h1>
+<p>Masukkan password administrator untuk mengelola konfigurasi Ujianix.</p>
+<form method="post" action="/login">
+<input type="hidden" name="csrf_token" value="{csrf_token}">
+<label for="admin_password">Password administrator</label>
+<input id="admin_password" name="admin_password"
+       type="password" minlength="12" maxlength="256"
+       autocomplete="current-password" required>
+<button type="submit">Masuk</button>
+</form>
+</main>
+</body>
+</html>"""
+        elif self.path == "/dashboard":
+            try:
+                html = DASHBOARD_FILE.read_text(encoding="utf-8")
+            except OSError:
+                return self.send_text(500, "Dashboard administrator tidak ditemukan.")
+
+        else:
+            try:
+                html = HTML_FILE.read_text(encoding="utf-8")
+            except OSError:
+                return self.send_text(
+                    500, "Halaman First-Boot Setup tidak ditemukan."
+                )
+
+            form_tag = '<form id="setup-form" method="post" action="/save">'
+            if form_tag not in html:
+                return self.send_text(
+                    500,
+                    "Form First-Boot Setup tidak memiliki struktur yang sesuai."
+                )
+
+            additions = (
+                f'<input type="hidden" name="csrf_token" value="{csrf_token}">'
+            )
+
+            if not AUTH_FILE.exists():
+                additions += """
+<fieldset>
+<legend>Pendaftaran Administrator</legend>
+<label for="admin_password">Password administrator baru</label>
+<input id="admin_password" name="admin_password" type="password"
+       minlength="12" maxlength="256" autocomplete="new-password" required>
+<label for="admin_password_confirm">Ulangi password administrator</label>
+<input id="admin_password_confirm" name="admin_password_confirm"
+       type="password" minlength="12" maxlength="256"
+       autocomplete="new-password" required>
+<p>Password minimal 12 karakter. Simpan password ini dengan aman.</p>
+</fieldset>
+"""
+
+            html = html.replace(form_tag, form_tag + additions, 1)
+
+        body = html.encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.send_header(
+            "Set-Cookie",
+            f"ujianix_csrf={csrf_token}; HttpOnly; SameSite=Strict; Path=/"
+        )
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_launch(self):
+        cookies = {}
+        for part in self.headers.get("Cookie", "").split(";"):
+            key, separator, val = part.strip().partition("=")
+            if separator:
+                cookies[key] = val
+
+        token = cookies.get("ujianix_session", "")
+        if not token or not validate_admin_session(token):
+            return self.send_text(401, "Sesi administrator tidak valid.")
+
+        try:
+            target = Path("/run/ujianix/server-url").read_text(encoding="utf-8").strip()
+        except OSError:
+            return self.send_text(409, "Konfigurasi belum siap.")
+
+        if not target.startswith(("http://", "https://")):
+            return self.send_text(409, "Alamat server tidak valid.")
+
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_POST(self):
+        if self.path == "/login":
+            return self.do_login()
+        if self.path == "/save":
+            return self.do_save()
+        return self.send_text(404, "Not found")
+
+    def do_login(self):
+        if self.client_address[0] != "127.0.0.1":
+            return self.send_text(403, "Akses ditolak.")
+
+        origin = self.headers.get("Origin", "")
+        if origin and origin != f"http://127.0.0.1:{PORT}":
+            return self.send_text(403, "Origin tidak valid.")
+
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip()
+        if content_type != "application/x-www-form-urlencoded":
+            return self.send_text(415, "Jenis data permintaan tidak didukung.")
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return self.send_text(400, "Ukuran permintaan tidak valid.")
+
+        if length <= 0 or length > MAX_BODY:
+            return self.send_text(413, "Ukuran data tidak diizinkan.")
+
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+            data = parse_qs(raw, keep_blank_values=True, strict_parsing=True)
+        except (UnicodeDecodeError, ValueError):
+            return self.send_text(400, "Data login tidak valid.")
+
+        if set(data) != {"csrf_token", "admin_password"}:
+            return self.send_text(400, "Kolom login tidak sesuai.")
+
+        if any(len(values) != 1 for values in data.values()):
+            return self.send_text(400, "Permintaan mengandung parameter ganda.")
+
+        form_token = data["csrf_token"][0]
+        password = data["admin_password"][0]
+
+        cookie_token = ""
+        for part in self.headers.get("Cookie", "").split(";"):
+            key, separator, val = part.strip().partition("=")
+            if separator and key == "ujianix_csrf":
+                cookie_token = val
+
+        if not cookie_token or not secrets.compare_digest(cookie_token, form_token):
+            return self.send_text(403, "Token keamanan tidak valid. Muat ulang halaman.")
+
+        if not AUTH_FILE.exists() or not check_admin_password(password):
+            return self.send_text(401, "Password administrator tidak benar.")
+
+        session_token = create_admin_session()
+
+        self.send_response(303)
+        self.send_header("Location", "/dashboard")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header(
+            "Set-Cookie",
+            f"ujianix_session={session_token}; HttpOnly; SameSite=Strict; "
+            f"Path=/; Max-Age={SESSION_TTL}"
+        )
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_save(self):
+        if self.path != "/save":
+            return self.send_text(404, "Not found")
+
+        if self.client_address[0] != "127.0.0.1":
+            return self.send_text(403, "Akses ditolak.")
+
+        cookies = {}
+        for part in self.headers.get("Cookie", "").split(";"):
+            key, separator, val = part.strip().partition("=")
+            if separator:
+                cookies[key] = val
+
+        registration_mode = not (
+            AUTH_FILE.exists() or AUTH_FILE.is_symlink()
+        )
+
+        session_token = cookies.get("ujianix_session", "")
+        if not registration_mode:
+            if not session_token or not validate_admin_session(session_token):
+                return self.send_text(
+                    401, "Sesi administrator tidak valid. Silakan login kembali."
+                )
+
+        origin = self.headers.get("Origin", "")
+        if origin and origin != f"http://127.0.0.1:{PORT}":
+            return self.send_text(403, "Origin tidak valid.")
+
+        content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip()
+        if content_type != "application/x-www-form-urlencoded":
+            return self.send_text(415, "Jenis data permintaan tidak didukung.")
+
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return self.send_text(400, "Ukuran permintaan tidak valid.")
+
+        if length <= 0 or length > MAX_BODY:
+            return self.send_text(413, "Ukuran data tidak diizinkan.")
+
+        try:
+            raw = self.rfile.read(length).decode("utf-8")
+            data = parse_qs(raw, keep_blank_values=True, strict_parsing=True)
+        except (UnicodeDecodeError, ValueError):
+            return self.send_text(400, "Data formulir tidak valid.")
+
+        allowed_fields = {
+            "csrf_token", "server_mode", "server_url", "whitelist",
+            "screenshot_enabled", "screenshot_interval",
+            "webcam_enabled", "privacy_notice"
+        }
+
+        if registration_mode:
+            allowed_fields.update({
+                "admin_password", "admin_password_confirm"
+            })
+
+        if set(data) - allowed_fields:
+            return self.send_text(400, "Formulir mengandung kolom yang tidak dikenal.")
+
+        if any(len(values) != 1 for values in data.values()):
+            return self.send_text(400, "Formulir mengandung parameter ganda.")
+
+        def value(name, default=""):
+            return data.get(name, [default])[0].strip()
+
+        cookie_token = ""
+        for part in self.headers.get("Cookie", "").split(";"):
+            key, separator, val = part.strip().partition("=")
+            if separator and key == "ujianix_csrf":
+                cookie_token = val
+
+        form_token = value("csrf_token")
+        if not cookie_token or not secrets.compare_digest(cookie_token, form_token):
+            return self.send_text(403, "Token keamanan tidak valid. Muat ulang halaman.")
+
+        registration_password = None
+        if registration_mode:
+            registration_password = data.get("admin_password", [""])[0]
+            password_confirm = data.get("admin_password_confirm", [""])[0]
+
+            if not 12 <= len(registration_password) <= 256:
+                return self.send_text(
+                    400, "Password administrator harus 12 sampai 256 karakter."
+                )
+
+            if registration_password != password_confirm:
+                return self.send_text(
+                    400, "Konfirmasi password administrator tidak cocok."
+                )
+
+        mode = value("server_mode")
+        url = value("server_url")
+        whitelist_text = value("whitelist")
+        screenshot_value = value("screenshot_enabled")
+        webcam_value = value("webcam_enabled")
+        interval = value("screenshot_interval", "5")
+        privacy_raw = value("privacy_notice")
+
+        if mode not in ("online", "offline"):
+            return self.send_text(400, "Mode server harus online atau offline.")
+
+        if screenshot_value not in ("", "on", "true", "1"):
+            return self.send_text(400, "Nilai pengaturan screenshot tidak valid.")
+
+        if webcam_value not in ("", "on", "true", "1"):
+            return self.send_text(400, "Nilai pengaturan webcam tidak valid.")
+
+        try:
+            parsed, server_port = parse_server_url(url)
+            entries = parse_whitelist(whitelist_text)
+        except ValueError as error:
+            return self.send_text(400, str(error))
+
+        if not server_is_whitelisted(parsed, server_port, entries):
+            return self.send_text(
+                400,
+                "Host dan port server ujian harus tercantum dalam whitelist."
+            )
+
+        try:
+            interval_number = int(interval)
+            if not 1 <= interval_number <= 1440:
+                raise ValueError()
+        except ValueError:
+            return self.send_text(400, "Interval screenshot harus 1 sampai 1440 menit.")
+
+        if any(
+            unicodedata.category(char) == "Cc" and char not in "\r\n"
+            for char in privacy_raw
+        ):
+            return self.send_text(400, "Pemberitahuan privasi mengandung karakter kontrol yang tidak valid.")
+
+        privacy = privacy_raw.replace("\r", " ").replace("\n", " ")
+        if len(privacy) > 2000:
+            return self.send_text(400, "Pemberitahuan privasi terlalu panjang.")
+
+        screenshot = "true" if screenshot_value else "false"
+        webcam = "true" if webcam_value else "false"
+
+        config = (
+            f"UJIANIX_SERVER_MODE={mode}\n"
+            f"UJIANIX_SERVER_URL={url}\n"
+            f"UJIANIX_WHITELIST={','.join(entry[3] for entry in entries)}\n"
+            f"UJIANIX_SCREENSHOT_ENABLED={screenshot}\n"
+            f"UJIANIX_SCREENSHOT_INTERVAL={interval_number}\n"
+            f"UJIANIX_WEBCAM_ENABLED={webcam}\n"
+            f"UJIANIX_PRIVACY_NOTICE={privacy}\n"
+        )
+
+        if registration_password is not None:
+            try:
+                save_admin_password(registration_password)
+            except FileExistsError:
+                return self.send_text(
+                    409, "Administrator sudah terdaftar. Silakan login."
+                )
+            except OSError:
+                return self.send_text(
+                    500, "Gagal menyimpan password administrator."
+                )
+
+        temp_path = None
+        try:
+            CONFIG_DIR.mkdir(mode=0o700, parents=True, exist_ok=True)
+            fd, temp_name = tempfile.mkstemp(prefix=".ujianix-", dir=CONFIG_DIR)
+            temp_path = Path(temp_name)
+
+            os.fchmod(fd, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as file:
+                file.write(config)
+                file.flush()
+                os.fsync(file.fileno())
+
+            os.replace(temp_path, CONFIG_FILE)
+            temp_path = None
+            os.chmod(CONFIG_FILE, 0o600)
+
+            dir_fd = os.open(CONFIG_DIR, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+
+        except OSError:
+            if temp_path is not None:
+                try:
+                    temp_path.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            return self.send_text(500, "Gagal menyimpan konfigurasi.")
+
+        try:
+            result = subprocess.run(
+                [str(LOADER_FILE)],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return self.send_text(
+                500,
+                "Konfigurasi tersimpan, tetapi gagal diterapkan. Periksa status layanan."
+            )
+
+        if result.returncode != 0:
+            return self.send_text(
+                500,
+                "Konfigurasi tersimpan, tetapi validasi penerapan gagal. Periksa konfigurasi."
+            )
+
+        session_token = create_admin_session() if registration_mode else None
+
+        self.send_response(303)
+        self.send_header("Location", "/dashboard")
+        self.send_header("Cache-Control", "no-store")
+
+        if session_token:
+            self.send_header(
+                "Set-Cookie",
+                f"ujianix_session={session_token}; HttpOnly; SameSite=Strict; "
+                f"Path=/; Max-Age={SESSION_TTL}"
+            )
+
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def log_message(self, format, *args):
+        print("Ujianix Config Service:", format % args)
+
+
+if __name__ == "__main__":
+    HTTPServer((HOST, PORT), Handler).serve_forever()

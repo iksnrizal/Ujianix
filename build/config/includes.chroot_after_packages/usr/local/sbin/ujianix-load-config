@@ -1,0 +1,163 @@
+#!/usr/bin/python3
+import importlib.util
+from importlib.machinery import SourceFileLoader
+import os
+import re
+import stat
+import unicodedata
+import tempfile
+from pathlib import Path
+
+CONFIG_FILE = Path("/etc/ujianix/ujianix.conf")
+BACKEND_FILE = Path("/usr/local/sbin/ujianix-config-server")
+STATE_DIR = Path("/run/ujianix")
+
+REQUIRED_KEYS = {
+    "UJIANIX_SERVER_MODE",
+    "UJIANIX_SERVER_URL",
+    "UJIANIX_WHITELIST",
+    "UJIANIX_SCREENSHOT_ENABLED",
+    "UJIANIX_SCREENSHOT_INTERVAL",
+    "UJIANIX_WEBCAM_ENABLED",
+    "UJIANIX_PRIVACY_NOTICE",
+}
+
+
+def load_backend_validators():
+    source_loader = SourceFileLoader(
+        "ujianix_backend_validators", str(BACKEND_FILE)
+    )
+    spec = importlib.util.spec_from_loader(
+        "ujianix_backend_validators", source_loader
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError("Modul validasi backend tidak dapat dimuat.")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def read_config():
+    if CONFIG_FILE.is_symlink() or not CONFIG_FILE.is_file():
+        raise ValueError("File konfigurasi tidak ditemukan atau bukan file biasa.")
+
+    info = CONFIG_FILE.stat()
+    if info.st_uid != 0 or stat.S_IMODE(info.st_mode) & 0o022:
+        raise ValueError("Kepemilikan atau izin file konfigurasi tidak aman.")
+
+    values = {}
+    content = CONFIG_FILE.read_text(encoding="utf-8")
+
+    for line in content.splitlines():
+        if not line or "=" not in line:
+            raise ValueError("Format konfigurasi tidak valid.")
+
+        key, value = line.split("=", 1)
+
+        if key not in REQUIRED_KEYS:
+            raise ValueError("Ditemukan kunci konfigurasi yang tidak dikenal.")
+
+        if key in values:
+            raise ValueError("Ditemukan kunci konfigurasi ganda.")
+
+        values[key] = value
+
+    if set(values) != REQUIRED_KEYS:
+        raise ValueError("Ada kunci konfigurasi yang belum tersedia.")
+
+    return values
+
+
+def validate_config(values):
+    if values["UJIANIX_SERVER_MODE"] not in ("online", "offline"):
+        raise ValueError("Mode server tidak valid.")
+
+    if values["UJIANIX_SCREENSHOT_ENABLED"] not in ("true", "false"):
+        raise ValueError("Pengaturan screenshot tidak valid.")
+
+    if values["UJIANIX_WEBCAM_ENABLED"] not in ("true", "false"):
+        raise ValueError("Pengaturan webcam tidak valid.")
+
+    interval = values["UJIANIX_SCREENSHOT_INTERVAL"]
+    if not re.fullmatch(r"[0-9]+", interval):
+        raise ValueError("Interval screenshot tidak valid.")
+    if not 1 <= int(interval) <= 1440:
+        raise ValueError("Interval screenshot di luar batas.")
+
+    privacy = values["UJIANIX_PRIVACY_NOTICE"]
+    if len(privacy) > 2000 or "\r" in privacy or "\n" in privacy:
+        raise ValueError("Pemberitahuan privasi tidak valid.")
+    if any(unicodedata.category(char) == "Cc" for char in privacy):
+        raise ValueError("Pemberitahuan privasi mengandung karakter kontrol.")
+
+    backend = load_backend_validators()
+
+    parsed, server_port = backend.parse_server_url(
+        values["UJIANIX_SERVER_URL"]
+    )
+
+    # Backend menyimpan whitelist dalam format dipisahkan koma.
+    whitelist_text = values["UJIANIX_WHITELIST"].replace(",", "\n")
+    entries = backend.parse_whitelist(whitelist_text)
+
+    if not backend.server_is_whitelisted(parsed, server_port, entries):
+        raise ValueError("Server tidak tercantum dalam whitelist.")
+
+    return values["UJIANIX_SERVER_URL"]
+
+
+def write_state(name, value):
+    STATE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+    target = STATE_DIR / name
+    fd, temp_name = tempfile.mkstemp(prefix=".ujianix-", dir=STATE_DIR)
+
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            file.write(value + "\n")
+            file.flush()
+            os.fsync(file.fileno())
+
+        os.chmod(temp_name, 0o644)
+        os.replace(temp_name, target)
+
+        dir_fd = os.open(
+            STATE_DIR,
+            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0)
+        )
+        try:
+            os.fsync(dir_fd)
+        finally:
+            os.close(dir_fd)
+    finally:
+        if os.path.exists(temp_name):
+            os.unlink(temp_name)
+
+
+def main():
+    try:
+        STATE_DIR.mkdir(mode=0o755, parents=True, exist_ok=True)
+        (STATE_DIR / "server-url").unlink(missing_ok=True)
+
+        values = read_config()
+        url = validate_config(values)
+
+        write_state("server-url", url)
+        write_state("config-status", "ok")
+
+        print("Konfigurasi Ujianix valid.")
+        return 0
+
+    except (OSError, UnicodeError, ValueError, ImportError) as error:
+        try:
+            (STATE_DIR / "server-url").unlink(missing_ok=True)
+            write_state("config-status", "invalid-config")
+        except OSError as state_error:
+            print(f"Gagal memperbarui status konfigurasi: {state_error}")
+
+        print(f"Konfigurasi Ujianix belum siap: {error}")
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

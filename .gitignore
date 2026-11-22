@@ -1,34 +1,54 @@
-# Debian Live-Build generated files
-build/.build/
-build/.lock
-build/cache/
-build/chroot/
-build/binary/
-build/source/
-build/local/
-build/config.backup/
+# Hasil Live-Build
+/build/binary/
+/build/chroot/
+/build/cache/
+/build/*.iso
+/build/*.files
+/build/*.contents
+/build/*.packages
+/build/*.modified_timestamps
+/build/build-*.log
+/build/wget-log*
 
-# Generated artifacts
-build/*.iso
-build/*.img
-build/*.tar*
-build/*.log
-build/*.contents
-build/*.files
-build/*.packages
-build/*.zsync
-build/*.md5
-build/*.sha*
-build/chroot.*
-build/binary.modified_timestamps
-build/wget-log*
+# File sementara dan backup
+*.backup-before-*
 
-# Default Live-Build hooks
-build/config/hooks/*/*
-!build/config/hooks/*/
-!build/config/hooks/*/ujianix-*
+# Data internal Live-Build
+/build/.build/
+/build/chroot.packages.*
+/build/*.log
+/build/wget-log*
 
-# Backup files
-*.backup
-*.bak
-*~
+# Metadata hasil build
+/build/*.files
+/build/*.contents
+/build/*.packages
+/build/*.modified_timestamps
+
+# Semua file ISO
+*.iso
+
+# Hasil dan file sementara Live-Build
+/build/.build/
+/build/binary/
+/build/chroot/
+/build/cache/
+/build/*.iso
+/build/*.files
+/build/*.contents
+/build/*.packages
+/build/*.modified_timestamps
+/build/*.log
+/build/wget-log*
+/build/chroot.packages.*
+
+# Backup dan file ISO di seluruh proyek
+*.backup-before-*
+*.iso
+/ujianix-build-backups-*/
+
+# File cadangan di konfigurasi Live-Build
+/build/config/includes.chroot.backup/
+/build/config/**/*.backup*
+/build/config/**/*.bak*
+/build/config/**/*.verified*

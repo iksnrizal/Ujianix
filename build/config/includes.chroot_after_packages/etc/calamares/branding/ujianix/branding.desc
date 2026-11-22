@@ -1,0 +1,33 @@
+---
+componentName: ujianix
+welcomeStyleCalamares: false
+welcomeExpandingLogo: true
+windowExpanding: normal
+windowSize: 800px,580px
+windowPlacement: center
+strings:
+    productName:         Ujianix Linux
+    shortProductName:    Ujianix
+    version:             1.0
+    shortVersion:        1.0
+    versionedName:       Ujianix 1.0
+    shortVersionedName:  Ujianix 1.0
+    bootloaderEntryName: Ujianix
+    productUrl:          https://github.com/iksnrizal/Ujianix
+    supportUrl:          https://github.com/iksnrizal/Ujianix
+    knownIssuesUrl:      https://github.com/iksnrizal/Ujianix/issues
+    releaseNotesUrl:     https://github.com/iksnrizal/Ujianix
+    donateUrl:           https://github.com/iksnrizal/Ujianix
+sidebar: widget
+navigation: widget
+images:
+    productLogo:         "ujianik.png"
+    productIcon:         "ujianik.png"
+    productWelcome:      "welcome.png"
+slideshow:               "show.qml"
+style:
+   SidebarBackground:    "#FFFFFF"
+   SidebarText:          "#37474F"
+   SidebarTextCurrent:   "#FFFFFF"
+   SidebarBackgroundCurrent: "#2867A8"
+slideshowAPI: 2

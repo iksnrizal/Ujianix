@@ -1,0 +1,14 @@
+#!/bin/sh
+
+if [ "$(/usr/local/sbin/ujianix-boot-mode)" = "install" ]; then
+    export WLR_RENDERER=pixman
+    export QT_QPA_PLATFORM=wayland
+    export LANG=id_ID.UTF-8
+    export LANGUAGE=id
+    exec /usr/bin/cage -- /usr/bin/sudo \
+        --preserve-env=WAYLAND_DISPLAY,XDG_RUNTIME_DIR,QT_QPA_PLATFORM,LANG,LANGUAGE \
+        /usr/bin/calamares 2>>/tmp/ujianix-installer.log
+fi
+
+echo "Mode installer tidak aktif."
+exit 1

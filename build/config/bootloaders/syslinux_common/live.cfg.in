@@ -1,0 +1,18 @@
+label ujianix-try
+        menu label ^Try Ujianix
+        menu default
+        linux @LINUX@
+        initrd @INITRD@
+        append @APPEND_LIVE@
+
+label ujianix-install
+        menu label ^Install Ujianix
+        linux @LINUX@
+        initrd @INITRD@
+        append @APPEND_LIVE@ ujianix.install=1
+
+label ujianix-failsafe
+        menu label Try Ujianix (^Failsafe mode)
+        linux @LINUX@
+        initrd @INITRD@
+        append @APPEND_LIVE_FAILSAFE@

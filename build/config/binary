@@ -10,13 +10,13 @@ LB_BINARY_FILESYSTEM="fat32"
 LB_APT_INDICES="true"
 
 # Set boot parameters
-LB_BOOTAPPEND_LIVE="boot=live components quiet noroot"
+LB_BOOTAPPEND_LIVE="boot=live components quiet loglevel=3 noroot nottyautologin timezone=Asia/Jakarta keyboard-layouts=us"
 
 # Set boot parameters
 LB_BOOTAPPEND_INSTALL=""
 
 # Set boot parameters
-LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components memtest noapic noapm nodma nomce nosmp nosplash vga=788"
+LB_BOOTAPPEND_LIVE_FAILSAFE="boot=live components memtest noapic noapm nodma nomce nosmp nosplash vga=788 persistence persistence-media=removable-usb nottyautologin"
 
 # Set BIOS bootloader
 LB_BOOTLOADER_BIOS="syslinux"
@@ -31,7 +31,7 @@ LB_BOOTLOADERS="syslinux grub-efi"
 LB_CHECKSUMS="sha256"
 
 # Set compression
-LB_COMPRESSION="none"
+LB_COMPRESSION="xz"
 
 # Support dm-verity on rootfs
 LB_DM_VERITY=""
@@ -71,16 +71,16 @@ LB_HDD_SIZE="auto"
 LB_HDD_PARTITION_START=""
 
 # Set iso author
-LB_ISO_APPLICATION="Ujianix"
+LB_ISO_APPLICATION="Ujianix Linux"
 
 # Set iso preparer
 LB_ISO_PREPARER="live-build @LB_VERSION@; https://salsa.debian.org/live-team/live-build"
 
 # Set iso publisher
-LB_ISO_PUBLISHER="Debian Live project; https://wiki.debian.org/DebianLive; debian-live@lists.debian.org"
+LB_ISO_PUBLISHER="Ujianix Project"
 
 # Set iso volume (max 32 chars)
-LB_ISO_VOLUME="UJIANIX"
+LB_ISO_VOLUME="UJANIX"
 
 # Set jffs2 eraseblock size
 LB_JFFS2_ERASEBLOCK=""

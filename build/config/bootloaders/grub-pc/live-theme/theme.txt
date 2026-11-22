@@ -1,0 +1,49 @@
+desktop-image: "bg.png"
+desktop-color: "#F4F6F8"
+title-text: ""
+message-font: "DejaVu Sans Regular 16"
+message-color: "#263238"
+terminal-font: "DejaVu Sans Regular 16"
+
++ label {
+    top = 100%-50
+    left = 0
+    width = 100%
+    height = 24
+    text = "Gunakan tombol panah dan Enter untuk memilih"
+    align = "center"
+    color = "#37474F"
+    font = "DejaVu Sans Regular 16"
+}
+
++ boot_menu {
+    left = 25%
+    width = 50%
+    top = 44%
+    height = 30%
+    item_color = "#1B2A49"
+    item_font = "DejaVu Sans Regular 22"
+    selected_item_color = "#FFFFFF"
+    selected_item_font = "DejaVu Sans Regular 22"
+    selected_item_pixmap_style = "select_*.png"
+    item_height = 40
+    item_padding = 10
+    item_spacing = 8
+    icon_width = 0
+    icon_height = 0
+    item_icon_space = 0
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 25%
+    top = 100%-90
+    height = 18
+    width = 50%
+    font = "DejaVu Sans Regular 16"
+    text_color = "#263238"
+    fg_color = "#2867A8"
+    bg_color = "#D8DEE5"
+    border_color = "#D8DEE5"
+    text = "@TIMEOUT_NOTIFICATION_LONG@"
+}

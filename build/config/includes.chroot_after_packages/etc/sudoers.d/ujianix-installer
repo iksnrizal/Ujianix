@@ -1,0 +1,1 @@
+user ALL=(root) SETENV: NOPASSWD: /usr/bin/calamares

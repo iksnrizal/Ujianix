@@ -1,0 +1,13 @@
+[Unit]
+Description=Load Ujianix Admin Configuration
+After=local-fs.target systemd-udev-trigger.service
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ujianix-load-config
+RemainAfterExit=yes
+TimeoutStartSec=15
+
+[Install]
+WantedBy=multi-user.target

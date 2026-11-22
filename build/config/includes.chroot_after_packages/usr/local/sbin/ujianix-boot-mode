@@ -1,0 +1,6 @@
+#!/bin/sh
+if grep -qw 'ujianix.install=1' /proc/cmdline; then
+    echo install
+else
+    echo try
+fi

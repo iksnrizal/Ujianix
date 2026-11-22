@@ -1,0 +1,7 @@
+#!/bin/sh
+sed -i 's/^# *id_ID.UTF-8 UTF-8/id_ID.UTF-8 UTF-8/' /etc/locale.gen
+grep -q '^id_ID.UTF-8 UTF-8' /etc/locale.gen || echo 'id_ID.UTF-8 UTF-8' >> /etc/locale.gen
+locale-gen || true
+update-locale LANG=id_ID.UTF-8 || true
+systemctl mask NetworkManager-wait-online.service || true
+exit 0

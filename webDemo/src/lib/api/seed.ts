@@ -16,7 +16,7 @@ export interface MockDb {
 
 export const DEMO_ACCOUNTS = {
   admin: { username: "admin", password: "admin123" },
-  peserta: { username: "alrijal", password: "pink floyd" },
+  peserta: { username: "siswa01", password: "siswa123" },
 };
 
 type Q = [id: string, subject: string, text: string, opts: [string, string, string, string], correct: OptionKey, points?: number];

@@ -55,7 +55,7 @@ def read_config():
 
         key, value = line.split("=", 1)
 
-        if key not in REQUIRED_KEYS:
+        if key not in REQUIRED_KEYS and key != "UJIANIX_SUPERVISOR_URL":
             raise ValueError("Ditemukan kunci konfigurasi yang tidak dikenal.")
 
         if key in values:
@@ -63,7 +63,7 @@ def read_config():
 
         values[key] = value
 
-    if set(values) != REQUIRED_KEYS:
+    if set(values) - {"UJIANIX_SUPERVISOR_URL"} != REQUIRED_KEYS:
         raise ValueError("Ada kunci konfigurasi yang belum tersedia.")
 
     return values

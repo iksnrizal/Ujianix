@@ -45,11 +45,10 @@ if [ "$(tty 2>/dev/null)" = "/dev/tty1" ] &&
     if [ "$(/usr/local/sbin/ujianix-boot-mode)" = "install" ]; then
         exec /usr/local/bin/ujianix-installer
     else
-        if [ -r /run/ujianix/server-url ]; then
-            UJIANIX_URL="$(cat /run/ujianix/server-url)"
-            WLR_RENDERER=pixman exec /usr/bin/cage -- /usr/bin/firefox-esr --kiosk "$UJIANIX_URL"
-        else
-            i=0; while [ "$i" -lt 20 ] && ! python3 -c "import socket; socket.create_connection(('127.0.0.1', 8765), 1)" 2>/dev/null; do i=$((i+1)); sleep 0.5; done; WLR_RENDERER=pixman exec /usr/bin/cage -- /usr/bin/firefox-esr --kiosk http://127.0.0.1:8765/setup
-        fi
+        i=0
+        while [ "$i" -lt 40 ] && ! python3 -c "import socket; socket.create_connection(('127.0.0.1', 8765), 1)" 2>/dev/null; do
+            i=$((i+1)); sleep 0.5
+        done
+        WLR_RENDERER=pixman exec /usr/bin/cage -- /usr/bin/firefox-esr --kiosk http://127.0.0.1:8765/splash
     fi
 fi

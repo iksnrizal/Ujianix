@@ -52,10 +52,13 @@ footer{margin-top:18px;color:var(--muted);font-size:12px;text-align:center}
 <textarea id="whitelist" name="whitelist" placeholder="Boleh dikosongkan. Alamat server ujian ditambahkan otomatis."></textarea>
 
 <h2>3. Pengawasan peserta</h2>
-<label class="choice"><input type="checkbox" name="screenshot_enabled" value="true"> Screenshot berkala (fitur dalam pengembangan)</label>
+<label class="choice"><input type="checkbox" name="screenshot_enabled" value="true"> Screenshot berkala</label>
 <label for="screenshot_interval">Interval screenshot (menit)</label>
 <input type="number" id="screenshot_interval" name="screenshot_interval" min="1" max="1440" value="5">
-<label class="choice"><input type="checkbox" name="webcam_enabled" value="true"> Foto webcam berkala (fitur dalam pengembangan)</label>
+<label class="choice"><input type="checkbox" name="webcam_enabled" value="true"> Foto webcam berkala</label>
+<label for="supervisor_url">Alamat server pengawas</label>
+<input type="url" id="supervisor_url" name="supervisor_url" placeholder="http://192.168.1.10:8000">
+<p class="help">Wajib diisi jika screenshot atau webcam diaktifkan.</p>
 <label for="privacy_notice">Pemberitahuan privasi untuk peserta</label>
 <textarea id="privacy_notice" name="privacy_notice">Komputer ini digunakan khusus untuk pelaksanaan ujian.</textarea>
 
@@ -73,7 +76,9 @@ document.getElementById('setup-form').addEventListener('submit', function (e) {
   var host = u.hostname.toLowerCase(), hp = u.host.toLowerCase();
   var lines = f.whitelist.value.split(/\r?\n/).map(function (s) { return s.trim(); }).filter(Boolean);
   var low = lines.map(function (s) { return s.toLowerCase(); });
-  if (low.indexOf(host) < 0 && low.indexOf(hp) < 0) { lines.push(host); }
+  function addHost(v) { try { var x = new URL(v.trim()); var h = x.hostname.toLowerCase(), hq = x.host.toLowerCase(); if (low.indexOf(h) < 0 && low.indexOf(hq) < 0) { lines.push(h); low.push(h); } } catch (err) {} }
+  addHost(f.server_url.value);
+  if (f.supervisor_url && f.supervisor_url.value.trim()) { addHost(f.supervisor_url.value); }
   f.whitelist.value = lines.join('\n');
   var p = f.elements['admin_password'], c = f.elements['admin_password_confirm'];
   if (p && c && p.value !== c.value) {

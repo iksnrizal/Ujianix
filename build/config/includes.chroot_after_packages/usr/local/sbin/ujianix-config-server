@@ -3,6 +3,7 @@ import os
 import re
 import ipaddress
 import hashlib
+import json
 import hmac
 import secrets
 import time
@@ -15,6 +16,8 @@ from pathlib import Path
 
 HTML_FILE = Path("/usr/share/ujianix/config-error.html")
 DASHBOARD_FILE = Path("/usr/share/ujianix/admin-dashboard.html")
+SPLASH_FILE = Path("/usr/share/ujianix/splash.html")
+ACK_FILE = Path("/run/ujianix/ack")
 CONFIG_DIR = Path("/etc/ujianix")
 CONFIG_FILE = CONFIG_DIR / "ujianix.conf"
 AUTH_FILE = CONFIG_DIR / "admin-auth"
@@ -276,6 +279,10 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if self.path == "/splash":
+            return self.do_splash()
+        if self.path == "/start":
+            return self.do_start()
         if self.path == "/launch":
             return self.do_launch()
 
@@ -397,7 +404,90 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def splash_state(self):
+        state = {"state": "unconfigured", "supervision": False,
+                 "screenshot": False, "webcam": False, "privacy": ""}
+        if not CONFIG_FILE.is_file():
+            return state
+        try:
+            status = Path("/run/ujianix/config-status").read_text(encoding="utf-8").strip()
+        except OSError:
+            status = ""
+        if status != "ok":
+            state["state"] = "invalid"
+            return state
+        values = {}
+        try:
+            for line in CONFIG_FILE.read_text(encoding="utf-8").splitlines():
+                key, separator, val = line.partition("=")
+                if separator:
+                    values[key] = val
+        except (OSError, UnicodeError):
+            state["state"] = "invalid"
+            return state
+        screenshot = values.get("UJIANIX_SCREENSHOT_ENABLED") == "true"
+        webcam = values.get("UJIANIX_WEBCAM_ENABLED") == "true"
+        state.update({
+            "state": "ready",
+            "screenshot": screenshot,
+            "webcam": webcam,
+            "supervision": screenshot or webcam,
+            "privacy": values.get("UJIANIX_PRIVACY_NOTICE", ""),
+        })
+        return state
+
+    def send_redirect(self, location):
+        self.send_response(302)
+        self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def do_splash(self):
+        try:
+            html = SPLASH_FILE.read_text(encoding="utf-8")
+        except OSError:
+            return self.send_text(500, "Halaman splash tidak ditemukan.")
+        data = json.dumps(self.splash_state()).replace("<", "\\u003c")
+        body = html.replace("__STATE__", data).encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_start(self):
+        if self.client_address[0] != "127.0.0.1":
+            return self.send_text(403, "Akses ditolak.")
+        state = self.splash_state()
+        if state["state"] != "ready":
+            return self.send_redirect("/splash")
+        if state["supervision"] and not ACK_FILE.exists():
+            return self.send_redirect("/splash")
+        try:
+            target = Path("/run/ujianix/server-url").read_text(encoding="utf-8").strip()
+        except OSError:
+            return self.send_redirect("/splash")
+        if not target.startswith(("http://", "https://")):
+            return self.send_redirect("/splash")
+        return self.send_redirect(target)
+
+    def do_ack(self):
+        if self.client_address[0] != "127.0.0.1":
+            return self.send_text(403, "Akses ditolak.")
+        origin = self.headers.get("Origin", "")
+        if origin and origin != f"http://127.0.0.1:{PORT}":
+            return self.send_text(403, "Origin tidak valid.")
+        try:
+            ACK_FILE.write_text("ok\n", encoding="utf-8")
+        except OSError:
+            return self.send_text(500, "Gagal menyimpan persetujuan.")
+        return self.send_text(200, "ok")
+
     def do_POST(self):
+        if self.path == "/ack":
+            return self.do_ack()
         if self.path == "/login":
             return self.do_login()
         if self.path == "/save":
@@ -513,7 +603,7 @@ class Handler(BaseHTTPRequestHandler):
         allowed_fields = {
             "csrf_token", "server_mode", "server_url", "whitelist",
             "screenshot_enabled", "screenshot_interval",
-            "webcam_enabled", "privacy_notice"
+            "webcam_enabled", "privacy_notice", "supervisor_url"
         }
 
         if registration_mode:
@@ -562,6 +652,7 @@ class Handler(BaseHTTPRequestHandler):
         webcam_value = value("webcam_enabled")
         interval = value("screenshot_interval", "5")
         privacy_raw = value("privacy_notice")
+        supervisor_url = value("supervisor_url")
 
         if mode not in ("online", "offline"):
             return self.send_text(400, "Mode server harus online atau offline.")
@@ -601,6 +692,17 @@ class Handler(BaseHTTPRequestHandler):
         if len(privacy) > 2000:
             return self.send_text(400, "Pemberitahuan privasi terlalu panjang.")
 
+        supervision_on = bool(screenshot_value or webcam_value)
+        if supervisor_url or supervision_on:
+            if not supervisor_url:
+                return self.send_text(400, "Alamat server pengawas wajib diisi jika pengawasan diaktifkan.")
+            try:
+                sup_parsed, sup_port = parse_server_url(supervisor_url)
+            except ValueError as error:
+                return self.send_text(400, str(error))
+            if not server_is_whitelisted(sup_parsed, sup_port, entries):
+                return self.send_text(400, "Host dan port server pengawas harus tercantum dalam whitelist.")
+
         screenshot = "true" if screenshot_value else "false"
         webcam = "true" if webcam_value else "false"
 
@@ -612,6 +714,7 @@ class Handler(BaseHTTPRequestHandler):
             f"UJIANIX_SCREENSHOT_INTERVAL={interval_number}\n"
             f"UJIANIX_WEBCAM_ENABLED={webcam}\n"
             f"UJIANIX_PRIVACY_NOTICE={privacy}\n"
+            f"UJIANIX_SUPERVISOR_URL={supervisor_url}\n"
         )
 
         if registration_password is not None:

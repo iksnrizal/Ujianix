@@ -1,0 +1,11 @@
+#!/bin/sh
+ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime
+echo Asia/Jakarta > /etc/timezone
+cat > /etc/default/keyboard <<'KB'
+XKBMODEL="pc105"
+XKBLAYOUT="us"
+XKBVARIANT=""
+XKBOPTIONS=""
+BACKSPACE="guess"
+KB
+exit 0

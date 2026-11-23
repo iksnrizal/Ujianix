@@ -1,0 +1,19 @@
+[Unit]
+Description=Ujianix Supervision Agent
+After=ujianix-config.service network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/ujianix-supervisor-agent
+Restart=on-failure
+RestartSec=5
+User=root
+Group=root
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/run/ujianix
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,134 @@
+#!/usr/bin/python3
+import glob
+import os
+import pwd
+import socket
+import subprocess
+import time
+import urllib.request
+
+CONFIG = "/etc/ujianix/ujianix.conf"
+ACK = "/run/ujianix/ack"
+
+
+def log(message):
+    print("Ujianix Supervisor:", message, flush=True)
+
+
+def read_config():
+    values = {}
+    with open(CONFIG, encoding="utf-8") as file:
+        for line in file.read().splitlines():
+            key, separator, value = line.partition("=")
+            if separator:
+                values[key] = value
+    return values
+
+
+def device_id():
+    try:
+        with open("/etc/machine-id", encoding="ascii") as file:
+            suffix = file.read().strip()[:6]
+    except OSError:
+        suffix = "000000"
+    return socket.gethostname() + "-" + suffix
+
+
+def session_env():
+    for user in pwd.getpwall():
+        if 1000 <= user.pw_uid < 60000:
+            runtime = "/run/user/%d" % user.pw_uid
+            sockets = [s for s in sorted(glob.glob(runtime + "/wayland-*")) if not s.endswith(".lock")]
+            if sockets:
+                return {
+                    "XDG_RUNTIME_DIR": runtime,
+                    "WAYLAND_DISPLAY": os.path.basename(sockets[0]),
+                    "PATH": "/usr/bin:/bin",
+                }
+    return None
+
+
+def take_screenshot():
+    env = session_env()
+    if env is None:
+        raise RuntimeError("sesi grafis belum siap")
+    result = subprocess.run(
+        ["grim", "-s", "0.6", "-t", "jpeg", "-q", "60", "-"],
+        env=env, capture_output=True, timeout=30)
+    if result.returncode != 0 or not result.stdout:
+        raise RuntimeError("grim gagal: " + result.stderr.decode("utf-8", "replace")[:200])
+    return result.stdout
+
+
+def take_webcam():
+    devices = sorted(glob.glob("/dev/video*"))
+    if not devices:
+        raise RuntimeError("kamera tidak ditemukan")
+    last = "tidak ada perangkat yang bisa dipakai"
+    for device in devices:
+        result = subprocess.run(
+            ["fswebcam", "-q", "-d", device, "-r", "640x480", "-S", "6",
+             "--no-banner", "--jpeg", "70", "-"],
+            capture_output=True, timeout=40)
+        if result.returncode == 0 and result.stdout[:3] == b"\xff\xd8\xff":
+            return result.stdout
+        last = result.stderr.decode("utf-8", "replace")[:200]
+    raise RuntimeError("fswebcam gagal: " + last)
+
+
+def send(base, kind, data, device):
+    request = urllib.request.Request(
+        base.rstrip("/") + "/upload", data=data, method="POST",
+        headers={
+            "X-Ujianix-Device": device,
+            "X-Ujianix-Kind": kind,
+            "Content-Type": "application/octet-stream",
+        })
+    urllib.request.urlopen(request, timeout=20).read()
+
+
+def main():
+    device = device_id()
+    announced = False
+    while True:
+        try:
+            config = read_config()
+            screenshot = config.get("UJIANIX_SCREENSHOT_ENABLED") == "true"
+            webcam = config.get("UJIANIX_WEBCAM_ENABLED") == "true"
+            base = config.get("UJIANIX_SUPERVISOR_URL", "")
+            minutes = int(config.get("UJIANIX_SCREENSHOT_INTERVAL", "5"))
+        except (OSError, ValueError):
+            time.sleep(10)
+            continue
+        if not (screenshot or webcam) or not base:
+            time.sleep(15)
+            continue
+        if not os.path.exists(ACK):
+            time.sleep(2)
+            continue
+        if not announced:
+            try:
+                note = "pengawasan dimulai: screenshot=%s webcam=%s" % (screenshot, webcam)
+                send(base, "event", note.encode("utf-8"), device)
+                announced = True
+            except OSError as error:
+                log("server pengawas belum terjangkau: %s" % error)
+                time.sleep(10)
+                continue
+            time.sleep(5)
+        for kind, enabled, capture in (
+            ("screenshot", screenshot, take_screenshot),
+            ("webcam", webcam, take_webcam),
+        ):
+            if not enabled:
+                continue
+            try:
+                send(base, kind, capture(), device)
+                log("%s terkirim" % kind)
+            except Exception as error:
+                log("%s gagal: %s" % (kind, error))
+        time.sleep(max(60, minutes * 60))
+
+
+if __name__ == "__main__":
+    main()

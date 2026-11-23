@@ -1,14 +1,19 @@
 #!/usr/bin/python3
+import collections
 import glob
 import os
 import pwd
 import socket
 import subprocess
 import time
+import urllib.error
 import urllib.request
 
 CONFIG = "/etc/ujianix/ujianix.conf"
 ACK = "/run/ujianix/ack"
+USB_PATH = "/sys/bus/usb/devices"
+TICK = 5
+PING_EVERY = 30
 
 
 def log(message):
@@ -51,13 +56,17 @@ def session_env():
 def take_screenshot():
     env = session_env()
     if env is None:
-        raise RuntimeError("sesi grafis belum siap")
-    result = subprocess.run(
-        ["grim", "-s", "0.6", "-t", "jpeg", "-q", "60", "-"],
-        env=env, capture_output=True, timeout=30)
-    if result.returncode != 0 or not result.stdout:
-        raise RuntimeError("grim gagal: " + result.stderr.decode("utf-8", "replace")[:200])
-    return result.stdout
+        raise RuntimeError("sesi grafis belum siap (soket Wayland tidak ditemukan)")
+    errors = []
+    for fmt in ("jpeg", "png"):
+        args = ["grim", "-s", "0.6", "-t", fmt]
+        if fmt == "jpeg":
+            args += ["-q", "60"]
+        result = subprocess.run(args + ["-"], env=env, capture_output=True, timeout=30)
+        if result.returncode == 0 and result.stdout:
+            return result.stdout
+        errors.append(result.stderr.decode("utf-8", "replace").strip()[:120])
+    raise RuntimeError("grim gagal: " + " / ".join(errors))
 
 
 def take_webcam():
@@ -72,8 +81,29 @@ def take_webcam():
             capture_output=True, timeout=40)
         if result.returncode == 0 and result.stdout[:3] == b"\xff\xd8\xff":
             return result.stdout
-        last = result.stderr.decode("utf-8", "replace")[:200]
+        last = result.stderr.decode("utf-8", "replace").strip()[:120] or "keluaran kosong"
     raise RuntimeError("fswebcam gagal: " + last)
+
+
+def read_attr(path, name):
+    try:
+        with open(os.path.join(path, name), encoding="utf-8", errors="replace") as file:
+            return file.read().strip()
+    except OSError:
+        return ""
+
+
+def usb_devices():
+    found = {}
+    for path in glob.glob(USB_PATH + "/*"):
+        if not os.path.exists(os.path.join(path, "idVendor")):
+            continue
+        if read_attr(path, "bDeviceClass") == "09":
+            continue
+        name = read_attr(path, "product") or "tanpa nama"
+        found[os.path.basename(path)] = "%s:%s %s" % (
+            read_attr(path, "idVendor"), read_attr(path, "idProduct"), name)
+    return found
 
 
 def send(base, kind, data, device):
@@ -84,50 +114,130 @@ def send(base, kind, data, device):
             "X-Ujianix-Kind": kind,
             "Content-Type": "application/octet-stream",
         })
-    urllib.request.urlopen(request, timeout=20).read()
+    urllib.request.urlopen(request, timeout=15).read()
 
 
-def main():
-    device = device_id()
-    announced = False
-    while True:
-        try:
-            config = read_config()
-            screenshot = config.get("UJIANIX_SCREENSHOT_ENABLED") == "true"
-            webcam = config.get("UJIANIX_WEBCAM_ENABLED") == "true"
-            base = config.get("UJIANIX_SUPERVISOR_URL", "")
-            minutes = int(config.get("UJIANIX_SCREENSHOT_INTERVAL", "5"))
-        except (OSError, ValueError):
-            time.sleep(10)
-            continue
-        if not (screenshot or webcam) or not base:
-            time.sleep(15)
-            continue
-        if not os.path.exists(ACK):
-            time.sleep(2)
-            continue
-        if not announced:
+class Agent:
+    def __init__(self):
+        self.device = device_id()
+        self.queue = collections.deque(maxlen=12)
+        self.errors = {}
+        self.down_since = None
+        self.usb = None
+        self.started = False
+        self.next_capture = 0.0
+        self.next_ping = 0.0
+
+    def enqueue(self, kind, data):
+        if isinstance(data, str):
+            data = data.encode("utf-8")
+        self.queue.append((kind, data))
+
+    def link_ok(self):
+        if self.down_since is not None:
+            seconds = int(time.monotonic() - self.down_since)
+            self.down_since = None
+            self.enqueue("event", "koneksi ke server pengawas pulih (terputus %d detik)" % seconds)
+
+    def link_down(self, error):
+        if self.down_since is None:
+            self.down_since = time.monotonic()
+            log("server pengawas tidak terjangkau: %s" % error)
+
+    def flush(self, base):
+        while self.queue:
+            kind, data = self.queue[0]
             try:
-                note = "pengawasan dimulai: screenshot=%s webcam=%s" % (screenshot, webcam)
-                send(base, "event", note.encode("utf-8"), device)
-                announced = True
+                send(base, kind, data, self.device)
+            except urllib.error.HTTPError as error:
+                log("ditolak server (%s), data dibuang" % error.code)
+                self.queue.popleft()
+                self.link_ok()
             except OSError as error:
-                log("server pengawas belum terjangkau: %s" % error)
-                time.sleep(10)
-                continue
-            time.sleep(5)
-        for kind, enabled, capture in (
+                self.link_down(error)
+                return False
+            else:
+                self.queue.popleft()
+                self.link_ok()
+        return True
+
+    def report(self, kind, error):
+        message = str(error)
+        log("%s gagal: %s" % (kind, message))
+        if self.errors.get(kind) != message:
+            self.errors[kind] = message
+            self.enqueue("event", "%s gagal: %s" % (kind, message))
+
+    def recovered(self, kind):
+        if kind in self.errors:
+            del self.errors[kind]
+            self.enqueue("event", "%s kembali normal" % kind)
+
+    def watch_usb(self):
+        current = usb_devices()
+        if self.usb is not None:
+            for key, label in current.items():
+                if key not in self.usb:
+                    self.enqueue("event", "USB tersambung: %s" % label)
+            for key, label in self.usb.items():
+                if key not in current:
+                    self.enqueue("event", "USB dilepas: %s" % label)
+        self.usb = current
+
+    def capture(self, screenshot, webcam):
+        for kind, enabled, action in (
             ("screenshot", screenshot, take_screenshot),
             ("webcam", webcam, take_webcam),
         ):
             if not enabled:
                 continue
             try:
-                send(base, kind, capture(), device)
-                log("%s terkirim" % kind)
+                self.enqueue(kind, action())
+                self.recovered(kind)
             except Exception as error:
-                log("%s gagal: %s" % (kind, error))
-        time.sleep(max(60, minutes * 60))
+                self.report(kind, error)
+
+    def step(self, config):
+        screenshot = config.get("UJIANIX_SCREENSHOT_ENABLED") == "true"
+        webcam = config.get("UJIANIX_WEBCAM_ENABLED") == "true"
+        base = config.get("UJIANIX_SUPERVISOR_URL", "")
+        minutes = int(config.get("UJIANIX_SCREENSHOT_INTERVAL", "5"))
+        if not (screenshot or webcam) or not base:
+            return 15
+        if not os.path.exists(ACK):
+            return 2
+        now = time.monotonic()
+        if not self.started:
+            self.started = True
+            self.usb = usb_devices()
+            self.enqueue("event", "pengawasan dimulai: screenshot=%s webcam=%s interval=%d menit" % (
+                screenshot, webcam, minutes))
+            self.next_capture = now + 5
+        self.watch_usb()
+        if now >= self.next_capture:
+            self.capture(screenshot, webcam)
+            self.next_capture = now + max(60, minutes * 60)
+        sent = self.flush(base)
+        if sent and now >= self.next_ping:
+            try:
+                send(base, "ping", b"ok", self.device)
+                self.link_ok()
+            except urllib.error.HTTPError:
+                pass
+            except OSError as error:
+                self.link_down(error)
+            self.next_ping = now + PING_EVERY
+        return TICK
+
+
+def main():
+    agent = Agent()
+    while True:
+        try:
+            wait = agent.step(read_config())
+        except (OSError, ValueError):
+            wait = 10
+        time.sleep(wait)
 
 
 if __name__ == "__main__":

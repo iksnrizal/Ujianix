@@ -6,7 +6,7 @@
 import { getConfig } from "@/config";
 import { scoreAttempt } from "@/lib/scoring";
 import { getToken } from "@/lib/session";
-import { createSeed, type MockDb } from "./seed";
+import { createSeed, DEMO_ACCOUNTS, type MockDb } from "./seed";
 import {
   ApiError,
   NetworkError,
@@ -24,10 +24,32 @@ let db: MockDb | null = null;
 
 function load(): MockDb {
   if (db) return db;
+  let migratedDemoAccount = false;
   if (typeof window !== "undefined") {
     try {
       const raw = window.localStorage.getItem(DB_KEY);
-      if (raw) db = JSON.parse(raw) as MockDb;
+      if (raw) {
+        const storedDb = JSON.parse(raw) as MockDb;
+        const legacyDemoParticipant = storedDb.participants.find(
+          (participant) => participant.id === "p1",
+        );
+        if (
+          legacyDemoParticipant?.username === "siswa01" &&
+          legacyDemoParticipant.password === "siswa123"
+        ) {
+          legacyDemoParticipant.username = DEMO_ACCOUNTS.peserta.username;
+          legacyDemoParticipant.password = DEMO_ACCOUNTS.peserta.password;
+          migratedDemoAccount = true;
+        }
+        if (
+          legacyDemoParticipant?.username === DEMO_ACCOUNTS.peserta.username &&
+          legacyDemoParticipant.name === "Andi Pratama"
+        ) {
+          legacyDemoParticipant.name = "Alrijal";
+          migratedDemoAccount = true;
+        }
+        db = storedDb;
+      }
     } catch {
       db = null;
     }
@@ -35,15 +57,20 @@ function load(): MockDb {
   if (!db) {
     db = createSeed();
     persist();
+  } else if (migratedDemoAccount) {
+    persist();
   }
   return db;
 }
 
 function persist() {
-  if (db && typeof window !== "undefined") window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+  if (db && typeof window !== "undefined") {
+    window.localStorage.setItem(DB_KEY, JSON.stringify(db));
+  }
 }
 
-const uid = (prefix: string) => `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+const uid = (prefix: string) =>
+  `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 async function request<T>(fn: () => T, latency = 160): Promise<T> {
   await new Promise((r) => setTimeout(r, latency));
@@ -56,13 +83,16 @@ async function request<T>(fn: () => T, latency = 160): Promise<T> {
 function auth(role: Role) {
   const token = getToken();
   const [, tokenRole, id] = token?.split(":") ?? [];
-  if (!token || tokenRole !== role || !id) throw new ApiError("Sesi tidak valid. Silakan login kembali.", 401);
+  if (!token || tokenRole !== role || !id)
+    throw new ApiError("Sesi tidak valid. Silakan login kembali.", 401);
   return id;
 }
 
 function finalize(d: MockDb, attempt: Attempt, now = Date.now()) {
   const exam = d.exams.find((e) => e.id === attempt.examId);
-  const qs = (exam?.questionIds ?? []).map((id) => d.questions.find((q) => q.id === id)).filter((q) => !!q);
+  const qs = (exam?.questionIds ?? [])
+    .map((id) => d.questions.find((q) => q.id === id))
+    .filter((q) => !!q);
   attempt.status = "submitted";
   attempt.submittedAt = new Date(Math.min(now, new Date(attempt.deadline).getTime())).toISOString();
   attempt.result = scoreAttempt(qs, attempt.answers);
@@ -119,13 +149,28 @@ export const mockApi: UjianixApi = {
       const u = username.trim().toLowerCase();
       const admin = d.admins.find((a) => a.username === u && a.password === password);
       if (admin) {
-        return { token: `mock:admin:${admin.id}`, user: { id: admin.id, username: admin.username, name: admin.name, role: "admin" as const } };
+        return {
+          token: `mock:admin:${admin.id}`,
+          user: {
+            id: admin.id,
+            username: admin.username,
+            name: admin.name,
+            role: "admin" as const,
+          },
+        };
       }
       const p = d.participants.find((x) => x.username === u && x.password === password);
       if (!p) throw new ApiError("Username atau password salah", 401);
       return {
         token: `mock:peserta:${p.id}`,
-        user: { id: p.id, username: p.username, name: p.name, role: "peserta" as const, identityNumber: p.identityNumber, className: p.className },
+        user: {
+          id: p.id,
+          username: p.username,
+          name: p.name,
+          role: "peserta" as const,
+          identityNumber: p.identityNumber,
+          className: p.className,
+        },
       };
     }, 400),
 
@@ -163,7 +208,15 @@ export const mockApi: UjianixApi = {
       const username = input.username.trim().toLowerCase();
       assertUsernameFree(d, username);
       if (!input.password) throw new ApiError("Password wajib diisi", 400);
-      const p = { id: uid("p"), username, password: input.password, name: input.name.trim(), identityNumber: input.identityNumber.trim(), className: input.className.trim(), createdAt: new Date().toISOString() };
+      const p = {
+        id: uid("p"),
+        username,
+        password: input.password,
+        name: input.name.trim(),
+        identityNumber: input.identityNumber.trim(),
+        className: input.className.trim(),
+        createdAt: new Date().toISOString(),
+      };
       d.participants.push(p);
       persist();
       return stripPassword(p);
@@ -177,7 +230,12 @@ export const mockApi: UjianixApi = {
       if (!p) throw new ApiError("Peserta tidak ditemukan", 404);
       const username = input.username.trim().toLowerCase();
       assertUsernameFree(d, username, id);
-      Object.assign(p, { username, name: input.name.trim(), identityNumber: input.identityNumber.trim(), className: input.className.trim() });
+      Object.assign(p, {
+        username,
+        name: input.name.trim(),
+        identityNumber: input.identityNumber.trim(),
+        className: input.className.trim(),
+      });
       if (input.password) p.password = input.password;
       persist();
       return stripPassword(p);
@@ -250,7 +308,9 @@ export const mockApi: UjianixApi = {
       const d = load();
       const e = getExam(d, id);
       Object.assign(e, input);
-      if (e.status === "selesai") for (const a of d.attempts) if (a.examId === id && a.status === "in_progress") finalize(d, a);
+      if (e.status === "selesai")
+        for (const a of d.attempts)
+          if (a.examId === id && a.status === "in_progress") finalize(d, a);
       persist();
       return e;
     }),
@@ -262,7 +322,9 @@ export const mockApi: UjianixApi = {
       const e = getExam(d, id);
       e.status = status;
       // Ending an exam collects every attempt still in progress.
-      if (status === "selesai") for (const a of d.attempts) if (a.examId === id && a.status === "in_progress") finalize(d, a);
+      if (status === "selesai")
+        for (const a of d.attempts)
+          if (a.examId === id && a.status === "in_progress") finalize(d, a);
       persist();
       return e;
     }),
@@ -302,9 +364,19 @@ export const mockApi: UjianixApi = {
       return d.exams.map<ParticipantExamView>((e) => {
         const a = d.attempts.find((x) => x.examId === e.id && x.participantId === pid);
         return {
-          exam: { id: e.id, name: e.name, subject: e.subject, durationMinutes: e.durationMinutes, status: e.status },
+          exam: {
+            id: e.id,
+            name: e.name,
+            subject: e.subject,
+            durationMinutes: e.durationMinutes,
+            status: e.status,
+          },
           questionCount: e.questionIds.length,
-          state: !a ? "belum_dikerjakan" : a.status === "submitted" ? "selesai" : "sedang_dikerjakan",
+          state: !a
+            ? "belum_dikerjakan"
+            : a.status === "submitted"
+              ? "selesai"
+              : "sedang_dikerjakan",
           attemptId: a?.id,
         };
       });
@@ -317,9 +389,11 @@ export const mockApi: UjianixApi = {
       sweepExpired(d);
       const exam = getExam(d, examId);
       let attempt = d.attempts.find((a) => a.examId === examId && a.participantId === pid);
-      if (attempt?.status === "submitted") throw new ApiError("Ujian ini sudah Anda kumpulkan", 409);
+      if (attempt?.status === "submitted")
+        throw new ApiError("Ujian ini sudah Anda kumpulkan", 409);
       if (!attempt) {
-        if (exam.status !== "berlangsung") throw new ApiError("Ujian belum dibuka oleh pengawas", 403);
+        if (exam.status !== "berlangsung")
+          throw new ApiError("Ujian belum dibuka oleh pengawas", 403);
         if (exam.questionIds.length === 0) throw new ApiError("Ujian ini belum memiliki soal", 409);
         const now = Date.now();
         attempt = {
@@ -340,8 +414,20 @@ export const mockApi: UjianixApi = {
         .filter((q) => !!q)
         .map(({ correct: _c, ...pub }) => pub);
       return {
-        attempt: { id: current.id, examId, startedAt: current.startedAt, deadline: current.deadline, answers: { ...current.answers }, status: current.status },
-        exam: { id: exam.id, name: exam.name, subject: exam.subject, durationMinutes: exam.durationMinutes },
+        attempt: {
+          id: current.id,
+          examId,
+          startedAt: current.startedAt,
+          deadline: current.deadline,
+          answers: { ...current.answers },
+          status: current.status,
+        },
+        exam: {
+          id: exam.id,
+          name: exam.name,
+          subject: exam.subject,
+          durationMinutes: exam.durationMinutes,
+        },
         questions,
         serverTime: new Date().toISOString(),
       };
@@ -368,7 +454,8 @@ export const mockApi: UjianixApi = {
       if (!a) throw new ApiError("Sesi ujian tidak ditemukan", 404);
       if (a.status === "in_progress") {
         // Accept the final answer sheet only while time remains.
-        if (new Date(a.deadline).getTime() + 5_000 > Date.now()) a.answers = { ...a.answers, ...answers };
+        if (new Date(a.deadline).getTime() + 5_000 > Date.now())
+          a.answers = { ...a.answers, ...answers };
         finalize(d, a);
         persist();
       }
@@ -384,7 +471,12 @@ export const mockApi: UjianixApi = {
       sweepExpired(d);
       const a = d.attempts.find((x) => x.id === attemptId && (isAdmin || x.participantId === pid));
       if (!a) throw new ApiError("Hasil ujian tidak ditemukan", 404);
-      const detail: ResultDetail = { ...toRow(d, a), participantId: a.participantId, examId: a.examId, startedAt: a.startedAt };
+      const detail: ResultDetail = {
+        ...toRow(d, a),
+        participantId: a.participantId,
+        examId: a.examId,
+        startedAt: a.startedAt,
+      };
       return detail;
     }),
 };

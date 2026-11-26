@@ -100,7 +100,7 @@ function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 aria-invalid={!!errors.username}
-                placeholder="contoh: siswa01"
+                placeholder="contoh: alrijal"
                 className="h-11"
               />
               {errors.username && <p className="text-xs font-medium text-destructive">{errors.username}</p>}

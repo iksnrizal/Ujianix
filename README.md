@@ -2,7 +2,7 @@
 
 <img src="docs/img/ujianik.jpg" alt="Ujianix" width="30%">
 
-**Ujianix**
+# UJIANIX
 
 Sistem operasi Linux untuk ujian berbasis Debian 13 (Trixie)
 
@@ -10,23 +10,25 @@ Sistem operasi Linux untuk ujian berbasis Debian 13 (Trixie)
 
 <div align="center">
     
+![Project](https://img.shields.io/badge/Project-Ujianix%20OS-0078D4?style=round)
+![Platform](https://img.shields.io/badge/Platform-Linux-FFFFFF?style=round&logo=linux&logoColor=black&labelColor=FCC624)
+![Purpose](https://img.shields.io/badge/Purpose-Exam%20Kiosk-6AA84F?style=round)
+
 ![Debian](https://img.shields.io/badge/DEBIAN-13_TRIXIE-555555?style=for-the-badge&logo=debian&logoColor=white&labelColor=A81D33)
 ![Python](https://img.shields.io/badge/PYTHON-3-FFD43B?style=for-the-badge&logo=python&logoColor=white&labelColor=3776AB)
 ![Firefox](https://img.shields.io/badge/FIREFOX-ESR_KIOSK-555555?style=for-the-badge&logo=firefoxbrowser&logoColor=white&labelColor=FF7139)
 ![Systemd](https://img.shields.io/badge/SYSTEMD-SERVICES-555555?style=for-the-badge&logo=linux&logoColor=white&labelColor=2072B8)
 
-![Calamares](https://img.shields.io/badge/CALAMARES-INSTALLER-555555?style=for-the-badge&labelColor=1D3557)
-![Cage](https://img.shields.io/badge/CAGE-WAYLAND_KIOSK-555555?style=for-the-badge&labelColor=1D3557)
 
 <br>
 
-![Arsitektur](https://img.shields.io/badge/arsitektur-amd64-555555?style=flat-square&logo=linux&logoColor=white&labelColor=007EC6)
-![Boot](https://img.shields.io/badge/boot-BIOS_%2B_UEFI-555555?style=flat-square&labelColor=007EC6)
-![Lisensi](https://img.shields.io/badge/lisensi-GPL-555555?style=flat-square&logo=gnu&logoColor=white&labelColor=007EC6)
+![Category](https://img.shields.io/badge/Category-Operating%20System-555555?style=round&labelColor=6A5ACD)
+![License](https://img.shields.io/badge/License-GPL--3.0-blue?style=round&logo=gnu&logoColor=white)
+![License](https://img.shields.io/badge/License-Multiple%20Licenses-green?style=round&logo=opensourceinitiative&logoColor=white)
 
 </div>
 
-[Instalasi](#instalasi) &middot; [Bangun ISO sendiri](#membangun-iso-sendiri) &middot; [Server pengawas](#server-pengawas) &middot; [Fitur](#fitur) &middot; [Anggota Kelompok](#Detail-Proyek)
+[Instalasi](#instalasi) &middot; [Bangun ISO Sendiri](#membangun-iso-sendiri) &middot; [Server Pengawas](#server-pengawas) &middot; [Fitur](#fitur) &middot; [Anggota Kelompok](#detail-proyek)
 
 <br>
 

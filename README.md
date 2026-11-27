@@ -2,9 +2,9 @@
 
 <img src="docs/img/ujianik.jpg" alt="Ujianix" width="30%">
 
-**Sistem operasi Linux khusus ujian berbasis Debian 13 (Trixie)**
+**Ujianix**
 
-Pengawasan peserta &middot; Installer berbahasa Indonesia
+Sistem operasi Linux untuk ujian berbasis Debian 13 (Trixie)
 
 <br>
 
